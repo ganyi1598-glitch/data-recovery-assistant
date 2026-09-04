@@ -376,21 +376,63 @@ const QUICK_TAGS=[
 /* ===================== 可直接复制的「发给客户」话术生成 ===================== */
 function analogyPart(item){
   const t=(item.title+" "+(item.route||"")+" "+(item.suspect||"")).toLowerCase();
-  if(item.risk==="C"||item.risk==="D")
-    return "您这块盘我们当成“病人”看：它里面有个像“眼角膜”一样的读取头可能受损或移位，再通电运转，就像让伤员继续跑——不是增加机会，是加重伤。所以先别通电，我们送进“手术室”（无尘环境）做检查。";
-  if(t.indexOf("bitlocker")>=0||t.indexOf("加密")>=0||t.indexOf("密钥")>=0)
-    return "它像上了锁的病历柜——底层能“取样”，但看不到里面，得有钥匙（恢复密钥）才打得开。";
+  /* —— 先按「问题类型」给专属比喻（不分风险等级，保证 RAID/加密/手机等不被物理急症筐盖掉） —— */
+  if(t.indexOf("勒索")>=0||t.indexOf("locked")>=0||t.indexOf("encrypted")>=0||t.indexOf("病毒")>=0)
+    return "它像“病历被锁还可能传染”——文件被加密了，先隔离断电，不联网、不接别的设备，否则备份和别的电脑也被污染；我们只读镜像后再评估能否解开。";
+  if(t.indexOf("bitlocker")>=0||t.indexOf("加密")>=0||t.indexOf("密钥")>=0||t.indexOf("veracrypt")>=0||t.indexOf("truecrypt")>=0||t.indexOf("filevault")>=0||t.indexOf("t2")>=0||t.indexOf("apple silicon")>=0)
+    return "它像上了锁的“病历柜”——底层能“取样”，但看不到里面，得有钥匙（恢复密钥/开机密码）才打得开；没有钥匙，扫出来的也是密文。";
   if(t.indexOf("raid")>=0||t.indexOf("阵列")>=0||t.indexOf("nas")>=0||t.indexOf("服务器")>=0)
-    return "它像几个器官一起维持的“生命”，关键不是单块盘扫出多少文件，而是几块盘的顺序和配合对不对，哪块都不能乱动。";
-  if((item.route||"").indexOf("镜像")>=0||(item.route||"").indexOf("受控")>=0)
-    return "它现在读得不太稳，好比“记忆”有点模糊还带坏点。我们不反复拷问原盘，而是先把能读出来的内容一次性“取样复印”下来（这叫镜像），后面分析都在复印件上做，绝不再折腾原盘。";
-  return "它更像是“记性乱了”（误删/格式化），不是硬件伤。这类我们按结构把记忆理顺，成功率最高，您先别往里写新东西。";
+    return "它像几个“器官”一起维持的“生命”——关键不是单块盘扫出多少文件，而是几块盘的顺序和配合对不对，哪块都不能乱动、更不能在线重建。";
+  if(t.indexOf("异响")>=0||t.indexOf("敲")>=0||t.indexOf("咔")>=0||t.indexOf("哒")>=0||t.indexOf("磁头")>=0)
+    return "它里面有个像“眼角膜”一样的读取头可能受损或移位，再通电运转就像让伤员继续跑——不是增加机会，是加重伤。先别通电，我们送进无尘“手术室”检查。";
+  if(t.indexOf("慢")>=0||t.indexOf("坏道")>=0||t.indexOf("smart")>=0||t.indexOf("掉盘")>=0||t.indexOf("时好时坏")>=0||t.indexOf("i/o")>=0)
+    return "它现在读得不太稳，好比“记忆”有点模糊还带“坏点”。我们不反复拷问原盘，而是先把能读出来的内容一次性“取样复印”下来（这叫镜像），后面分析都在复印件上做，绝不再折腾原盘。";
+  if(t.indexOf("ssd")>=0||t.indexOf("trim")>=0||t.indexOf("固态")>=0||t.indexOf("nvme")>=0)
+    return "它像“记忆会自己慢慢消失”——固态盘有自动清理机制，您越继续用、它把旧记忆清得越多。尽快断电离线镜像，处理得越快希望越大。";
+  if(t.indexOf("u盘")>=0||t.indexOf("优盘")>=0||t.indexOf("存储卡")>=0||t.indexOf("sd卡")>=0||t.indexOf("tf卡")>=0||t.indexOf("芯片")>=0||t.indexOf("接口")>=0)
+    return "它像“接口或芯片”出了毛病——不量产、不格式化、不反复热插拔；能识别就只读镜像，不能识别我们走芯片级方案。";
+  if(t.indexOf("进水")>=0||t.indexOf("摔")>=0||t.indexOf("泡")>=0||t.indexOf("湿")>=0)
+    return "它像受了“外伤”的病人——进水或摔过，里面可能移位、有残留物或划伤。您千万别通电、更别用吹风机热吹，越通电伤越重；我们送进无尘“手术室”做检查。";
+  if(t.indexOf("手机")>=0||t.indexOf("微信")>=0||t.indexOf("qq")>=0||t.indexOf("钉钉")>=0||t.indexOf("企业微信")>=0||t.indexOf("陌陌")>=0||t.indexOf("iphone")>=0||t.indexOf("安卓")>=0||t.indexOf("苹果")>=0||t.indexOf("相机")>=0||t.indexOf("监控")>=0||t.indexOf("录像")>=0||t.indexOf("行车记录")>=0||t.indexOf("无人机")>=0||t.indexOf("gopro")>=0||t.indexOf("云盘")>=0||t.indexOf("onedrive")>=0||t.indexOf("icloud")>=0||t.indexOf("百度网盘")>=0)
+    return "它里面的“病历”很特殊，而且设备会自己偷偷写入新东西（继续聊、继续拍、继续同步）把旧记忆盖掉。您先停用它，我们做“只读取样”，处理得越快丢得越少。";
+  if(t.indexOf("数据库")>=0||t.indexOf("财务")>=0||t.indexOf("视频")>=0||t.indexOf("文档")>=0||t.indexOf("压缩")>=0||t.indexOf("rar")>=0||t.indexOf("zip")>=0||t.indexOf("word")>=0||t.indexOf("excel")>=0||t.indexOf("ppt")>=0||t.indexOf("pdf")>=0||t.indexOf("源文件")>=0||t.indexOf("设计")>=0||t.indexOf("工程")>=0||t.indexOf("邮件")>=0||t.indexOf("虚拟机")>=0)
+    return "它的“病历”是特殊格式的（数据库/视频/文档/压缩包等），不能只按文件名找回就完事——要先保住原介质，再按它自己的格式把结构理顺、抽样验证能打开才交付。";
+  /* —— 物理急症细分（只在没匹配上面专属比喻时才用） —— */
+  if(item.risk==="C"||item.risk==="D"){
+    if(t.indexOf("不通电")>=0||t.indexOf("没反应")>=0||t.indexOf("不转")>=0||t.indexOf("供电")>=0||t.indexOf("电路")>=0||t.indexOf("bios")>=0||t.indexOf("识别不到")>=0||t.indexOf("主板")>=0)
+      return "它像病人“昏过去了”——先查供电和电路，不随便换板、不用大电流硬顶，得先判断是线材/盒子的毛病还是本体的毛病。";
+    if(t.indexOf("容量")>=0||t.indexOf("型号异常")>=0||t.indexOf("乱码")>=0||t.indexOf("固件")>=0||t.indexOf("主控")>=0||t.indexOf("变砖")>=0)
+      return "它像“大脑指令”乱了——设备认不出自己是谁、容量也对不上。这种不能当普通盘扫，要先保住固件/服务区，再谈能不能读取。";
+    return "这属于“急症”：硬件层面可能还在恶化。先别再通电折腾，我们送进无尘环境做评估，确定能不能安全读、还是要做物理/芯片级处理。";
+  }
+  return "它更像是“记性乱了”（误删/格式化/分区被洗掉重排），不是硬件伤。这类我们按结构把记忆理顺，成功率最高，您先别往里写新东西。";
+}
+function plainRoute(item){
+  const r=item.route||"";
+  let base="先判断它现在还能不能安全读取";
+  if(r.indexOf("镜像")>=0) base="先做“受控镜像”，把能读出来的内容一次性取样到安全盘，后面都在复印件上分析，绝不再折腾原盘";
+  else if(r.indexOf("RAID")>=0||r.indexOf("重组")>=0||r.indexOf("成员")>=0) base="逐块盘编号、做成员盘镜像，只在镜像上虚拟重组验证，不碰原阵列";
+  else if(r.indexOf("物理")>=0||r.indexOf("停手")>=0) base="送进无尘环境做物理/固件评估，确定能否安全读、要不要换头或做芯片级处理";
+  else if(r.indexOf("固件")>=0) base="按固件方向诊断，先保住服务区和关键模块，不拿客户盘试错";
+  else if(r.indexOf("芯片")>=0||r.indexOf("接口")>=0) base="先排查接口/供电，能识别就镜像，不能识别再走芯片级方案";
+  else if(r.indexOf("密钥")>=0||r.indexOf("隔离")>=0) base="先取样介质、同时帮您找密钥/隔离病毒，没有钥匙或不清毒前不谈打开";
+  else if(r.indexOf("逻辑")>=0||r.indexOf("分析")>=0) base="稳定后做镜像，再按文件系统结构把记忆理顺、抽样验证能打开";
+  return base+"（处理路线："+r+"）。";
 }
 function genCustomerScript(item){
-  let m="您好，先把这块盘当成一个“病人”来诊断——我没看清前不给您打包票，诊断就是判断它现在还能不能安全读取。\n";
+  const riskNote = item.risk==="C"||item.risk==="D"
+    ? "这属于“急症”，得先稳住再谈恢复，不能让它在您手上继续恶化。"
+    : item.risk==="B"
+    ? "这个情况不算最急，但也不能按“插电脑试试”的土办法来，得按规矩走。"
+    : "这个属于常见情况，成功机会大，但您先别自己动手，越动越糟。";
+  let m="您好，您说的【"+item.title+"】，我把它当一个“病人”来看。"+riskNote+"\n";
   m+=analogyPart(item)+"\n";
-  m+="两点您先记住：原盘别再写入、别点格式化/修复、恢复结果绝不存回原盘。\n";
-  m+="能不能恢复、要多少费用和时间，得等“取样”和分析之后才有准信。";
+  const kw=/通电|格式化|修复|写入|原盘|拍照|拍摄|覆盖|重装|同步|开机|插|量产|恢复出厂|清回收站|继续|分区|重建|初始化|扫描|chkdsk|试|供电|换板/;
+  const fb=item.forbid.filter(f=>kw.test(f));
+  const pick=fb.length?fb.slice(0,2):item.forbid.slice(0,2);
+  if(pick.length) m+="有两件事您现在千万别做："+pick.join("；")+"。\n";
+  m+="我们这边会这么做："+plainRoute(item)+"\n";
+  m+="至于能不能恢复、要多少费用和时间，得等先做“取样/诊断”之后才有准信，您先别往里面写新东西。";
   return m;
 }
 function componentTags(item){
