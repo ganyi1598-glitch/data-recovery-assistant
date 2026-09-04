@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>数据恢复接盘诊断助手</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232c; --line:#2b333d;
+    --text:#e6edf3; --muted:#9aa7b4; --accent:#4ea1ff; --accent2:#7c5cff;
+    --ok:#3fb950; --warn:#d29922; --bad:#f85149; --crit:#ff7b72;
+    --chip:#212a34; --chiph:#2c3845;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--text);font-size:15px;line-height:1.7}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#11151b,#0e1116);
+    border-bottom:1px solid var(--line);padding:14px 20px}
+  header h1{margin:0;font-size:18px;letter-spacing:.5px}
+  header p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+  .tabs{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .tab{background:var(--chip);color:var(--muted);border:1px solid var(--line);
+    padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13.5px;user-select:none}
+  .tab.active{background:var(--accent);color:#06121f;border-color:var(--accent);font-weight:700}
+  .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  main{max-width:1000px;margin:0 auto;padding:20px}
+  .view{display:none}
+  .view.active{display:block}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px}
+  textarea{width:100%;min-height:92px;background:var(--panel2);color:var(--text);
+    border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14.5px;resize:vertical;
+    font-family:inherit;outline:none}
+  textarea:focus{border-color:var(--accent)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  button.bt{background:var(--accent);color:#06121f;border:none;border-radius:9px;
+    padding:9px 18px;font-size:14px;cursor:pointer;font-weight:700}
+  button.bt:hover{filter:brightness(1.08)}
+  button.ghost{background:var(--chip);color:var(--text);border:1px solid var(--line);
+    border-radius:9px;padding:9px 14px;cursor:pointer;font-size:13px}
+  button.ghost:hover{background:var(--chiph)}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .chip-grid{display:flex;flex-wrap:wrap;gap:18px 14px;margin-top:14px}
+  .chip-group{width:100%;animation:fadeUp .45s ease both}
+  .chip-group-h{font-size:13px;font-weight:700;color:var(--accent);margin:0 0 8px;padding-left:8px;border-left:3px solid var(--accent)}
+  .chip{position:relative;display:inline-block;background:var(--chip);border:1px solid var(--line);color:var(--muted);
+    padding:7px 14px;border-radius:20px;font-size:13px;cursor:pointer;user-select:none;margin:0;
+    transition:transform .18s ease,background .18s ease,box-shadow .18s ease,color .18s ease}
+  .chip:hover{background:var(--chiph);color:var(--text);transform:scale(1.08);box-shadow:0 8px 22px rgba(0,0,0,.35);z-index:2}
+  .chip:active{transform:scale(0.96)}
+  .chip-filter{width:100%;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    color:var(--text);font-size:14px;outline:none;margin-top:4px;font-family:inherit}
+  .chip-filter:focus{border-color:var(--accent)}
+  h2.section{font-size:16px;margin:0 0 12px;color:var(--accent);font-weight:800}
+  .sub{color:var(--muted);font-size:13px;margin:-6px 0 10px}
+
+  /* ---- 动效 ---- */
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .view.active{animation:fadeIn .3s ease}
+  .card{animation:fadeUp .4s ease both}
+  .box{animation:fadeUp .35s ease both}
+
+  /* ---- 结果卡片 ---- */
+  .card{background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-radius:14px;
+    padding:16px 18px;margin-bottom:16px}
+  .card-A{border-left-color:var(--ok)} .card-B{border-left-color:var(--warn)}
+  .card-C{border-left-color:var(--bad)} .card-D{border-left-color:var(--crit)}
+  .banner{padding:13px 15px;border-radius:10px;margin-bottom:6px}
+  .banner.b-A{background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.35)}
+  .banner.b-B{background:rgba(210,153,34,.12);border:1px solid rgba(210,153,34,.35)}
+  .banner.b-C{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.35)}
+  .banner.b-D{background:rgba(255,123,114,.14);border:1px solid rgba(255,123,114,.45)}
+  .bt-title{font-size:18px;font-weight:800}
+  .bt-sub{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .bt-title .badge{vertical-align:middle;margin-left:8px}
+  .badge{font-size:11.5px;padding:2px 9px;border-radius:20px;font-weight:800;white-space:nowrap}
+  .b-A{background:rgba(63,185,80,.16);color:var(--ok);border:1px solid rgba(63,185,80,.4)}
+  .b-B{background:rgba(210,153,34,.16);color:var(--warn);border:1px solid rgba(210,153,34,.4)}
+  .b-C{background:rgba(248,81,73,.16);color:var(--bad);border:1px solid rgba(248,81,73,.4)}
+  .b-D{background:rgba(255,123,114,.18);color:var(--crit);border:1px solid rgba(255,123,114,.5)}
+  .sec{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+  .sec:first-of-type{border-top:none;padding-top:0}
+  .sec-h{font-size:12.5px;font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:7px;margin-bottom:8px}
+  .sec-h .ic{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-size:12px;font-weight:800;flex:none}
+  .ic-sus{background:rgba(124,92,255,.22);color:#b9a6ff}
+  .ic-ask{background:rgba(78,161,255,.22);color:#9fd0ff}
+  .ic-for{background:rgba(248,81,73,.18);color:#ff9b95}
+  .ic-nxt{background:rgba(63,185,80,.18);color:#8be29a}
+  .ic-say{background:rgba(210,153,34,.20);color:#f0cd7a}
+  ul{margin:2px 0 0;padding-left:20px} li{margin:3px 0}
+  .muted{color:var(--muted);font-size:13px}
+  /* 话术框 */
+  .say-box{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:14px 86px 14px 14px;white-space:pre-wrap;font-size:14px;line-height:1.75;color:#e8eef4;
+    word-break:break-word}
+  .copy-btn{position:absolute;top:8px;right:8px;background:var(--accent);color:#06121f;border:none;border-radius:7px;
+    padding:5px 12px;font-size:12px;cursor:pointer;font-weight:700;min-width:60px;min-height:30px;z-index:1;
+    transition:filter .15s, transform .1s}
+  .copy-btn:hover{filter:brightness(1.1)}
+  .copy-btn:active{transform:scale(.95)}
+  details{margin-top:10px} summary{cursor:pointer;color:var(--muted);font-size:12.5px}
+  .tag{display:inline-block;background:var(--chip);border:1px solid var(--line);border-radius:7px;
+    padding:3px 9px;margin:3px 6px 0 0;font-size:12.5px;color:var(--muted)}
+
+  /* 话术速查 / 练习 */
+  .empty{color:var(--muted);text-align:center;padding:30px;font-size:14px}
+  a{color:var(--accent)} .pill{display:inline-block;background:var(--chip);border:1px solid var(--line);
+    border-radius:20px;padding:3px 10px;margin:3px 4px 0 0;font-size:12px;color:var(--muted)}
+  .grp-h{font-size:14px;font-weight:800;color:var(--accent2);margin:18px 0 8px;
+    border-left:3px solid var(--accent2);padding-left:9px}
+
+  /* 练习模式分步 */
+  .quiz-progress{display:flex;gap:6px;margin:14px 0}
+  .quiz-progress i{flex:1;height:4px;background:var(--panel2);border-radius:2px;transition:background .2s}
+  .quiz-progress i.done{background:var(--ok)} .quiz-progress i.active{background:var(--accent)} .quiz-progress i.ok{background:var(--ok)} .quiz-progress i.bad{background:var(--bad)} .quiz-progress i.pending{background:var(--panel2)}
+  .step{display:none} .step.active{display:block;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .step-h{font-size:14px;font-weight:800;color:var(--accent);margin:16px 0 10px}
+  .step-opt{display:block;width:100%;text-align:left;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:9px;cursor:pointer;font-size:14px;line-height:1.6}
+  .step-opt:hover{background:var(--chiph)}
+  .step-opt.selected{border-color:var(--accent);background:rgba(78,161,255,.12)}
+  .step-opt.correct{border-color:var(--ok);background:rgba(63,185,80,.14)}
+  .step-opt.wrong{border-color:var(--bad);background:rgba(248,81,73,.14)}
+  .step-opt .tool-name{font-weight:700;display:block;margin-bottom:3px}
+  .step-opt .tool-note{font-size:12.5px;color:var(--muted)}
+  .quiz-actions{display:flex;gap:10px;margin-top:18px;align-items:center}
+  .quiz-actions .muted{font-size:13px}
+  .quiz-result{border-top:1px dashed var(--line);margin-top:18px;padding-top:14px}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+  .compare-box{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .compare-box h4{margin:0 0 8px;font-size:13px;color:var(--muted)}
+  .fb-ok{color:var(--ok);font-weight:700} .fb-bad{color:var(--bad);font-weight:700}
+  .quiz-imm-fb{margin-top:12px;padding:10px 13px;border-radius:10px;font-size:14px;border:1px solid var(--line)}
+  .quiz-imm-fb.fb-ok{background:rgba(63,185,80,.12);border-color:var(--ok)} .quiz-imm-fb.fb-bad{background:rgba(248,81,73,.12);border-color:var(--bad)}
+  @media(max-width:640px){
+    header{padding:10px 14px}
+    header h1{font-size:16px}
+    header p{font-size:12px}
+    main{padding:12px}
+    .box{padding:14px;border-radius:12px;margin-bottom:14px}
+    .tabs{gap:6px}
+    .tab{padding:6px 11px;font-size:12.5px;border-radius:7px}
+    .chip{padding:6px 11px;font-size:12px}
+    .chip-group-h{font-size:12px}
+    .card{padding:13px 14px;margin-bottom:12px}
+    .bt-title{font-size:15px}
+    .say-box{padding:12px 12px 44px 12px;font-size:13.5px;line-height:1.7}
+    .copy-btn{top:auto;right:10px;bottom:8px;padding:6px 14px;font-size:13px;min-width:64px;min-height:34px}
+    .step-opt{padding:13px 14px;font-size:13.5px;margin-top:8px}
+    .quiz-actions{flex-direction:column;gap:8px;align-items:stretch}
+    .quiz-actions .bt,.quiz-actions .ghost{width:100%;text-align:center}
+    .compare{grid-template-columns:1fr}
+    .chip-filter{font-size:14px;padding:9px 11px}
+    .sec-h{font-size:12px}
+    h2.section{font-size:15px}
+    .sub{font-size:12px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛰️ 数据恢复接盘诊断助手</h1>
+  <p>输入客户的症状/说法 → 给出「判断 · 操作 · 可直接复制的接单话术」。知识来源《数据恢复接盘诊断手册》+ 接单沟通整理。</p>
+  <div class="tabs">
+    <div class="tab active" data-v="diag" role="button" tabindex="0">① 接盘诊断</div>
+    <div class="tab" data-v="say" role="button" tabindex="0">② 话术速查</div>
+    <div class="tab" data-v="quiz" role="button" tabindex="0">③ 练习模式</div>
+  </div>
+</header>
+
+<main>
+  <section class="view active" id="diag">
+    <div class="box">
+      <h2 class="section">点选客户描述，直接看判断 + 话术</h2>
+      <p class="sub">下面按类别铺开了 <strong id="sceneTotal">0</strong> 种常见客户说法/故障场景，鼠标悬停会放大。点一个，马上出「判断 · 操作 · 可直接复制的话术」。</p>
+      <input type="text" id="chipFilter" class="chip-filter" placeholder="输入关键词筛选场景（可选）" autocomplete="off">
+      <div id="chipGrid"></div>
+    </div>
+    <div id="results"></div>
+  </section>
+
+  <section class="view" id="say">
+    <div class="box">
+      <h2 class="section">话术速查</h2>
+      <p class="sub">上半部分是手册核心原则；下半部分是<strong>可直接复制发给客户/客户常问的接单沟通话术库</strong>（比书更全）。点「复制」即可用。</p>
+    </div>
+    <div id="sayBox"></div>
+  </section>
+
+  <section class="view" id="quiz">
+    <div class="box">
+      <h2 class="section">分步操作演练 · 从客户说法到恢复方案</h2>
+      <p class="sub">每题按 3 步走：① 判断大概属于哪类问题 → ② 选择处理路线 → ③ 选择用什么工具 / 是否开盘。最后给出完整操作清单 + 可直接复制发给客户的话术。</p>
+      <button class="bt" id="quizNew">开始一题</button>
+    </div>
+    <div id="quizBox"></div>
+  </section>
+</main>
+
+<script>
+/* ============ 通用工具 ============ */
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function copyText(text, btn){
+  const ok=()=>{ const o=btn.textContent; btn.textContent="已复制 ✅"; setTimeout(()=>btn.textContent=o, 1400); };
+  const fail=()=>{ const o=btn.textContent; btn.textContent="复制失败"; setTimeout(()=>btn.textContent=o, 2200); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(ok).catch(fallback);
+  } else fallback();
+  function fallback(){
+    const ta=document.createElement("textarea"); ta.value=text; ta.setAttribute("readonly","");
+    ta.style.position="fixed"; ta.style.left="-9999px"; ta.style.top="0";
+    document.body.appendChild(ta); ta.select();
+    try{
+      const okExec=document.execCommand("copy");
+      ta.remove();
+      okExec ? ok() : fail();
+    }catch(e){ ta.remove(); fail(); }
+  }
+}
+
+/* ===================== 知识库（60 条手册场景 + 8 条补充） ===================== */
+const RISK_LABEL={A:"A级 低风险",B:"B级 中风险",C:"C级 高风险",D:"D级 停止操作"};
+const KNOWLEDGE=[
+{cat:"现象",title:"完全不通电",risk:"C",route:"电路/供电评估",q:["不通电","没反应","打不开","不转","不供电","没通电","灯不亮","完全没反应"],suspect:"优先怀疑电路板供电、接口、保护元件、硬盘盒或线材问题；机械盘也可能是电机驱动异常。",ask:["换过线或盒子吗","有没有烧味或发热","是否进水","是否接错电源"],forbid:["反复插拔通电","随便换板","用大电流电源硬顶","直接拆盘"],next:"先排除线材、硬盘盒和供电，再检查电路短路和 ROM/BIOS 适配。客户盘不要用来练换板。"},
+{cat:"现象",title:"有异响或敲盘",risk:"C",route:"物理评估（停手）",q:["异响","敲盘","咔咔","响","敲击","响几声","响一下","咔嗒","哒哒","响一下就停"],suspect:"优先怀疑磁头、盘片、固件加载失败或严重坏道。敲盘是高风险信号。",ask:["是否摔过","响声从什么时候开始","是否越响越频繁","是否曾经长时间扫描"],forbid:["继续普通软件扫描","反复通电听声音","让系统自动修复","低温冷冻等偏方"],next:"立即停止普通读取，记录声音表现和识别状态。按物理/固件方向评估，能否镜像看专业设备判断。"},
+{cat:"现象",title:"转一下就停",risk:"C",route:"电路/电机评估",q:["转一下就停","转一下停","起转后停","转停","转一下"],suspect:"优先怀疑电路板、电机驱动、主轴电机、磁头初始化失败或固件问题。",ask:["是否能听到起转","停转前有没有敲击","电脑是否识别型号","是否换过电源盒"],forbid:["反复上电","直接长时间挂电脑","不判断供电就换板"],next:"先确认供电和电路风险，再判断是否机械卡滞或初始化失败。不能当普通逻辑故障处理。"},
+{cat:"现象",title:"识别但很慢",risk:"B",route:"受控镜像",q:["很慢","慢","卡","识别慢","打开慢","复制慢","读取慢","I/O","掉速"],suspect:"优先怀疑坏道、弱读、磁头老化、文件系统损坏或固件读写异常。",ask:["慢是打开盘慢还是复制文件慢","是否卡在固定文件","SMART 是否报警","是否掉盘"],forbid:["全盘深度扫描","边扫边预览边导出到原盘","让 Windows 修复错误"],next:"优先做受控镜像，设置超时和跳过策略。镜像后再做逻辑恢复，不要在原盘上反复扫。"},
+{cat:"现象",title:"提示需要格式化",risk:"A",route:"镜像后逻辑分析",q:["格式化","让格式化","提示格式化","要格式化","需要格式化","RAW","raw","突然让格式化","电脑突然","提示要格式化","电脑提示"],suspect:"优先怀疑 DBR、文件系统元数据、分区边界、目录结构损坏；也可能由坏道导致关键区域读不出。",ask:["提示从什么时候出现","有没有点格式化","容量是否正常","有没有异响或很慢"],forbid:["点格式化","点磁盘检查修复","新建分区","把恢复结果写回原盘"],next:"先确认设备读取稳定性。稳定时做镜像，再分析 MBR/GPT、DBR、FAT/MFT/目录项。"},
+{cat:"现象",title:"分区突然没了",risk:"A",route:"镜像后逻辑分析",q:["分区没了","分区丢失","分区不见了","只剩一个","分区消失","盘符没了","分区少"],suspect:"优先怀疑 MBR/GPT 损坏、分区表被覆盖、误初始化、误分区、动态磁盘配置丢失。",ask:["是否重装系统","是否转换过分区表","是否使用分区工具","原来有几个分区"],forbid:["新建分区","初始化磁盘","写入新的 GPT/MBR","使用一键修复"],next:"镜像后搜索旧 DBR、备份 GPT、文件系统入口和目录结构。分区表修复必须先在副本上验证。"},
+{cat:"现象",title:"容量变 0 或明显不对",risk:"C",route:"固件/主控评估",q:["容量0","容量变0","容量不对","容量异常","变小","容量变小","0字节","缩水","变小了","变成0"],suspect:"优先怀疑固件、控制器、翻译器、USB 桥接板、主控或芯片异常。",ask:["设备原容量","现在显示多少","型号是否正常","是否换过盒子或转接器"],forbid:["按显示容量格式化","按 0 容量做扫描","刷固件","随便量产 U 盘"],next:"先判断是桥接盒问题还是本体问题。机械盘考虑固件/服务区，Flash 考虑主控或芯片级问题。"},
+{cat:"现象",title:"型号异常或乱码",risk:"C",route:"固件评估",q:["型号异常","乱码","型号不对","识别成","通用存储","未知设备","型号乱"],suspect:"优先怀疑固件模块、服务区、ROM、自适应信息、控制器通信异常。",ask:["以前型号是什么","是否换过电路板","是否固件修过","是否容量也异常"],forbid:["普通软件长扫","盲写固件","换板不转 ROM","初始化"],next:"按固件方向诊断，先保护服务区和关键模块。需要专业工具时不要用客户盘试错。"},
+{cat:"现象",title:"误删除文件",risk:"A",route:"镜像后逻辑分析",q:["误删","删除","删了","回收站","删掉","误删除","清空"],suspect:"优先怀疑逻辑删除。目录项、MFT 记录或索引可能还在，数据区是否被覆盖取决于后续写入。",ask:["删除后是否继续使用","是否安装恢复软件","恢复结果是否保存回原盘","文件类型和时间"],forbid:["继续往原盘写入","把软件装到原盘","恢复到原盘","系统盘继续开机使用"],next:"立即停止写入。能拆下就离线镜像，不能拆也要尽量只读。镜像后按文件系统分析删除痕迹。"},
+{cat:"现象",title:"误格式化",risk:"A",route:"镜像后逻辑分析",q:["格式化了","误格式化","格式化","重格式化","快速格式化","格式化了一下","我格式化"],suspect:"优先怀疑文件系统重建。快速格式化和完全格式化结果差异很大。",ask:["快速格式化还是完整格式化","格式化后是否写入新数据","原文件系统是什么","目标数据类型"],forbid:["再次格式化","复制新文件测试","安装系统","恢复到原盘"],next:"镜像后判断新旧 DBR、MFT/FAT、目录项和数据区残留。重点看覆盖范围。"},
+{cat:"现象",title:"重装系统后文件没了",risk:"A",route:"离线镜像后分析",q:["重装","重装系统","装系统","覆盖","桌面没了","系统盘","桌面文件","我重装系统","装系统了"],suspect:"优先怀疑系统分区部分覆盖。用户目录、桌面、文档可能被新系统覆盖，也可能残留在旧位置。",ask:["装到哪个分区","是否删除重建分区","安装后使用多久","目标文件原路径"],forbid:["继续开机使用","安装恢复软件到系统盘","在线下载工具"],next:"优先关机离线镜像。分析新系统覆盖范围，优先恢复未覆盖分区或旧用户目录残留。"},
+{cat:"现象",title:"RAID 重建失败",risk:"D",route:"RAID 成员盘镜像重组",q:["RAID","阵列","重建","掉线","降级","重组","raid"],suspect:"优先怀疑成员盘顺序、掉线盘、热备盘、条带参数、控制器元数据或二次重建破坏。",ask:["RAID 级别","几块盘","哪块先掉","是否换盘重建","槽位是否变过"],forbid:["继续在原阵列重建","初始化阵列","改变盘序","单盘逐个扫文件"],next:"逐块编号拍照，做成员盘镜像。只在镜像上虚拟重组，验证参数后再导出。"},
+{cat:"现象",title:"U 盘不识别",risk:"C",route:"接口/芯片级评估",q:["U盘","优盘","不识别","插上没反应","U盘没反应","u盘","插上去没反应"],suspect:"优先怀疑接口、晶振、主控、Flash 芯片、固件算法或逻辑损坏。",ask:["插上有没有声音","是否发热","是否容量 0","是否摔过或弯过接口"],forbid:["量产工具修复","格式化","反复热插拔","不判断就补焊芯片"],next:"先判断是否接口/供电问题。能识别就镜像，不能识别时可能进入芯片级恢复。"},
+{cat:"现象",title:"存储卡提示错误",risk:"B",route:"只读镜像后分析",q:["存储卡","内存卡","SD卡","TF卡","相机卡","卡错误","卡提示","sd卡","相机里","卡里提示错误"],suspect:"优先怀疑文件系统损坏、读卡器问题、坏块、控制器异常或误格式化。",ask:["相机或手机提示什么","是否继续拍摄","是否用电脑格式化","卡容量和品牌"],forbid:["继续拍照","相机内格式化","用不稳定读卡器反复读"],next:"换稳定读卡器只读镜像。镜像后分析 FAT/exFAT、目录项和照片/视频文件结构。"},
+{cat:"现象",title:"SSD 删除后找不到",risk:"B",route:"离线镜像后分析（TRIM）",q:["SSD","固态","NVMe","TRIM","删除后找不到","ssd","nvme","还能恢复吗"],suspect:"优先怀疑逻辑删除加 TRIM 影响。数据是否还在取决于系统、接口、时间和写入情况。",ask:["是否系统盘","删除后是否继续开机","是否支持 TRIM","目标文件类型"],forbid:["继续开机使用","安装软件到该 SSD","反复扫描写缓存"],next:"尽快断电离线镜像。说明 TRIM 风险，不承诺传统机械盘那样的删除恢复概率。"},
+{cat:"现象",title:"外置硬盘时好时坏",risk:"B",route:"排除盒/供电后镜像",q:["时好时坏","外置","移动硬盘","掉线","盒","供电不足","硬盘盒"],suspect:"优先怀疑硬盘盒、USB 线、供电不足、接口接触不良、硬盘本体坏道或电路问题。",ask:["是否换过线和盒子","是否大文件复制时掉线","是否在别的电脑正常","盘是否有异响"],forbid:["在不稳定连接下长时间扫描","边掉线边恢复","把结果写回同一外置盘"],next:"先排除盒子和供电，再判断硬盘本体。稳定识别后做镜像，不稳定则按物理风险处理。"},
+{cat:"场景",title:"分区只剩一个了",risk:"A",route:"镜像后逻辑分析",q:["只剩一个","分区只剩","分区少了","分区变少"],suspect:"优先怀疑分区表被覆盖、重装系统、误初始化或分区工具误操作。先看物理磁盘，不要急着新建分区。",ask:["原来有几个分区","最近是否装系统","是否用过分区助手","是否转换过 GPT/MBR"],forbid:["不要新建分区让盘符回来"],next:"镜像后搜索旧分区入口与备份 GPT，勿直接新建分区。"},
+{cat:"场景",title:"文件夹能看到但打不开",risk:"B",route:"抽样校验后分析",q:["打不开","文件名","能看到文件名","文件打不开","不能打开"],suspect:"可能是目录还在但数据区坏道、文件内容被覆盖、权限或加密问题。要抽样看文件头和实际内容。",ask:["打不开提示是什么","是否只某些文件打不开","文件大小是否正常","是否从坏盘复制过"],forbid:["不要只按文件名判断恢复成功"],next:"抽样打开关键文件，校验文件头/大小/碎片，再决定恢复范围。"},
+{cat:"场景",title:"硬盘响几声就没反应",risk:"C",route:"物理评估（停手）",q:["响几声","响","敲盘","异响","响一下"],suspect:"高风险机械或固件现象。响声代表磁头初始化失败、盘片风险或固件加载异常。",ask:["是否摔过","响声是连续敲击还是轻响","电脑是否能看到型号","客户是否反复通电"],forbid:["不要为了听清楚反复上电"],next:"记录声音与识别状态，停止普通读取，转物理/固件评估。"},
+{cat:"场景",title:"盘很慢但还能打开",risk:"B",route:"受控镜像",q:["很慢","慢","还能打开","打开慢","复制慢"],suspect:"慢盘最容易被误判成逻辑问题。重点看 SMART、坏道、读取超时和掉盘。",ask:["复制速度是否掉到 0","是否卡在固定文件","是否出现 I/O 错误","是否越用越慢"],forbid:["不要全盘深扫","不要边扫边预览大量文件"],next:"做受控镜像（超时/跳过策略），镜像后再逻辑分析。"},
+{cat:"场景",title:"我已经用软件扫了一晚上",risk:"B",route:"评估二次损伤后镜像",q:["扫","扫描","软件","一晚上","恢复软件","扫了一晚"],suspect:"要判断二次损伤。扫描一晚可能让坏道盘状态恶化，也可能在源盘写入缓存或恢复结果。",ask:["用的什么软件","扫了多久","是否保存回原盘","扫描中是否掉盘"],forbid:["不要在原扫描基础上继续硬扫"],next:"评估写入/覆盖风险，先镜像再分析，不在原扫描上硬扫。"},
+{cat:"场景",title:"我恢复出来的文件打不开",risk:"B",route:"分析正确数据区",q:["恢复出来","打不开","不能打开","恢复的文件"],suspect:"通常说明只恢复了文件名或碎片，没恢复正确数据区，也可能是覆盖、碎片化或文件系统记录损坏。",ask:["恢复到哪里","是否覆盖源盘","哪些类型打不开","文件大小是否合理"],forbid:["不要把二次恢复结果覆盖到唯一源盘"],next:"确认覆盖情况，按文件头/目录项重新分析正确数据区。"},
+{cat:"场景",title:"NAS 提示降级",risk:"C",route:"成员盘保护后重组",q:["NAS","降级","nas"],suspect:"降级不是马上坏完，但继续重建或换错盘会造成二次破坏。",ask:["哪块盘先报警","是否换过盘","是否正在重建","RAID 级别是什么"],forbid:["不要继续自动重建","不要改变槽位"],next:"停止自动重建，编号拍照，逐盘镜像后虚拟重组。"},
+{cat:"场景",title:"RAID 换盘后更坏了",risk:"D",route:"找掉线先后后重组",q:["RAID","换盘","更坏","阵列","raid"],suspect:"要找出掉线先后和重建历史。重建可能把错误数据写进阵列。",ask:["换的是哪块","重建到多少失败","是否还有热备盘","控制器日志是否在"],forbid:["不要再尝试在线重建"],next:"保留现场，逐盘镜像，按掉线历史与参数虚拟重组验证。"},
+{cat:"场景",title:"服务器系统起不来",risk:"C",route:"先保护数据阵列",q:["服务器","起不来","进不去系统","系统起不来"],suspect:"先区分系统故障和数据阵列故障。不要为了启动系统而修复原阵列。",ask:["是否能进 RAID BIOS","阵列状态是什么","数据分区和系统分区是否分离","最近是否断电"],forbid:["不要初始化阵列或重装系统覆盖数据盘"],next:"先保护数据阵列，再做系统盘处理，勿为启动而重建 RAID。"},
+{cat:"场景",title:"BitLocker 要密钥",risk:"C",route:"介质镜像+密钥收集",q:["BitLocker","密钥","加密","恢复密钥","bitlocker"],suspect:"底层恢复和解密是两件事。没有密钥，扇区镜像也只是密文。",ask:["有没有恢复密钥","是否登录微软账户","是否公司电脑","是否更换过主板"],forbid:["不要格式化试图跳过加密"],next:"先镜像介质，同时协助客户找密钥（微软账户/公司 IT/打印备份）。"},
+{cat:"场景",title:"视频文件很多打不开",risk:"B",route:"按格式修复索引",q:["视频","打不开","不能播放","视频文件","恢复出来不能播放"],suspect:"视频常有碎片、索引、头尾结构和写入中断问题。监控、无人机、相机格式差异很大。",ask:["设备品牌型号","拍摄时间段","是否断电","文件大小是否正常"],forbid:["不要只用通用文件头恢复就交付"],next:"按设备格式重建索引/头尾结构，抽样可播放验证后再交付。"},
+{cat:"场景",title:"数据库坏了",risk:"B",route:"保护介质后修库",q:["数据库","打不开","库","database"],suspect:"数据库恢复要同时考虑底层介质和数据库一致性。先保护原介质，再处理数据库文件。",ask:["数据库类型","是否仍在运行","最近备份时间","是否有日志文件"],forbid:["不要在原盘上直接修库"],next:"先镜像保护介质，再用备份+日志在副本上做一致性修复。"},
+{cat:"场景",title:"财务软件打不开",risk:"B",route:"整体数据目录恢复",q:["财务软件","软件打不开","财务"],suspect:"这类数据通常含数据库、附件、配置和授权文件。只恢复单个文件可能不够。",ask:["软件名称和版本","数据目录在哪里","是否有备份","报错内容是什么"],forbid:["不要只按扩展名导出一堆文件就结束"],next:"定位完整数据目录（库+附件+配置），在副本上整体恢复校验。"},
+{cat:"场景",title:"手机内存卡照片没了",risk:"A",route:"停用卡后镜像",q:["手机","内存卡","照片没了","相册","手机内存卡"],suspect:"手机、相机、电脑反复切换使用会产生新写入。先停用卡，再镜像。",ask:["删除前后是否继续拍照","是否插电脑修复","照片大概日期","是否微信或相册缓存"],forbid:["不要把卡插回手机继续刷新相册"],next:"立即停用卡，只读镜像后按日期/类型恢复照片。"},
+{cat:"场景",title:"监控只要某一天录像",risk:"B",route:"按时间轴提取",q:["监控","录像","某一天","监控盘"],suspect:"监控盘重点是时间轴和通道，不是普通文件名。循环覆盖会改变可恢复范围。",ask:["录像机品牌","通道号","目标日期时间","是否继续录像覆盖"],forbid:["不要插回录像机让系统继续覆盖"],next:"按时间轴/通道提取目标时段，避免继续录像循环覆盖。"},
+{cat:"场景",title:"硬盘进水了但干了",risk:"D",route:"物理评估（停手）",q:["进水","水","潮湿","湿","泡过"],suspect:"进水干了不代表安全，残留物和腐蚀会在通电时扩大损坏。",ask:["进水时间","是否通电试过","水的类型","是否拆开吹干"],forbid:["不要直接通电验证"],next:"不要通电，记录进水情况，转专业物理/电路评估。"},
+{cat:"场景",title:"别人修过没修好",risk:"C",route:"二次现场评估",q:["别人修过","修过","没修好","二次","之前修过"],suspect:"二次接盘要先搞清前一家做过什么。换板、开盘、固件写入、扫描写回都会改变现场。",ask:["做过哪些操作","有没有镜像","有没有开盘","有没有更换电路板"],forbid:["不要假设当前状态就是原始故障"],next:"把当前状态当二次现场，先问清历史再决定诊断入口。"},
+{cat:"说法",title:"它突然坏了",risk:"B",route:"追问时间线后分流",q:["突然坏了","突然坏","坏了"],suspect:"客户通常不知道底层原因，只表示故障发生得突然。可能是误操作，也可能电路、固件、坏道或 SSD 主控问题。",ask:["最后一次正常使用时间","第一次异常提示","是否断电/摔落/更新重装","设备类型与目标数据"],forbid:["不要只记录“突然坏了”就下结论"],next:"追问时间线、客户做过的动作、设备类型、目标数据和当前能否稳定读取。"},
+{cat:"说法",title:"我没有动过",risk:"B",route:"判断隐性写入",q:["没动过","没有动过","没碰过"],suspect:"客户说没动过，不代表没有写入。系统自动修复、开机缓存、相机继续拍摄、NAS 自动重建、监控继续录像，都可能在客户无主观操作时写入。",ask:["时间线","设备自动做了什么","设备类型","目标数据","当前能否稳定读取"],forbid:["不要轻信“没动过”就判定无覆盖"],next:"排查隐性写入来源，再判断覆盖风险。"},
+{cat:"说法",title:"我就点了一下修复",risk:"B",route:"评估元数据改写",q:["点了一下修复","修复","磁盘检查","chkdsk"],suspect:"这句话很重要。磁盘检查、系统修复、分区修复、恢复软件修复都可能改写文件系统元数据。",ask:["点的是哪个软件","持续多久","有没有完成","有没有提示错误"],forbid:["不要继续在已修复的盘上深扫"],next:"问清修复对象与时长，评估元数据改写范围后再镜像。"},
+{cat:"说法",title:"我已经恢复出来一部分",risk:"B",route:"查覆盖后重分析",q:["恢复出来一部分","恢复出来","扫出来","恢复了一部分"],suspect:"说明客户可能扫描过源盘，也可能把结果保存回源盘。要问恢复路径，若保存回原盘需把覆盖风险说清。",ask:["恢复路径在哪","是否保存回原盘","哪些类型","文件大小是否合理"],forbid:["不要把二次恢复结果覆盖到唯一源盘"],next:"确认覆盖情况，在副本上重新分析正确数据区。"},
+{cat:"说法",title:"以前有人修过",risk:"C",route:"二次现场评估",q:["有人修过","修过","没修好","之前修过","别人修过"],suspect:"二次接盘要小心。别人可能换过板、开过盘、写过固件、改过分区表、做过镜像或失败扫描。当前状态当二次现场。",ask:["做过哪些操作","有没有镜像","有没有开盘","有没有换电路板"],forbid:["不要按原始故障处理当前状态"],next:"问清历史，把当前状态当二次现场评估。"},
+{cat:"说法",title:"能看到文件名但打不开",risk:"B",route:"抽样校验后分析",q:["能看到文件名","文件名","打不开","文件打不开"],suspect:"看到文件名只说明目录或索引有残留，不代表数据内容完整。要检查文件大小、文件头、文件尾、中间数据、碎片和覆盖。",ask:["打不开提示","是否只某些文件","文件大小","是否从坏盘复制"],forbid:["不要只按文件名交付"],next:"抽样打开关键文件，校验完整性后再定范围。"},
+{cat:"说法",title:"复制到一半就不动了",risk:"B",route:"受控镜像",q:["复制到一半","复制不动","卡住","复制一半"],suspect:"很像坏道、弱读、接口不稳、供电不足或设备掉盘。不要继续普通复制，也不要用恢复软件长时间深扫。",ask:["时间线","客户做过的动作","设备类型","目标数据"],forbid:["不要继续普通复制","不要长时间深扫"],next:"先判断是否能受控镜像，再做后续分析。"},
+{cat:"说法",title:"灯亮但不显示盘符",risk:"B",route:"底层识别排查",q:["灯亮","不显示","盘符","不显示盘符","硬盘盒灯亮","电脑不显示","盒子灯亮"],suspect:"盘符只是文件系统挂载结果。灯亮不显示可能是硬盘盒、接口、盘芯不识别、分区表损坏、文件系统损坏或 Windows 未分配盘符。",ask:["时间线","客户做过的动作","设备类型","目标数据"],forbid:["不要只看资源管理器就判断"],next:"看磁盘管理和底层识别，不只看盘符。"},
+{cat:"说法",title:"NAS 提示硬盘坏了",risk:"C",route:"成员盘保护后重组",q:["NAS","硬盘坏了","nas","降级"],suspect:"NAS 报警不等于马上换盘重建。要问哪块先报警、是否有热备、是否已重建、阵列级别和文件系统。继续在线尝试会造成二次破坏。",ask:["哪块先报警","是否有热备","是否已重建","RAID 级别"],forbid:["不要继续在线重建","不要换错盘"],next:"停止自动重建，编号拍照，逐盘镜像后虚拟重组。"},
+{cat:"说法",title:"U 盘发热",risk:"C",route:"接口/芯片级评估",q:["U盘发热","发热","优盘发热","u盘发热"],suspect:"轻微温热和异常烫手不同。异常发热可能是短路、主控或电源问题。不要反复插拔、不要量产、不要当软件问题。",ask:["时间线","是否弯折","设备类型","目标数据"],forbid:["不要反复插拔","不要量产"],next:"先判短路/主控，能识别镜像，不能识别进芯片级。"},
+{cat:"说法",title:"只要几个文件",risk:"A",route:"判断安全读取后导出",q:["只要几个文件","几个文件","只要文件"],suspect:"这会影响导出范围，但不改变接盘安全流程。即使只要几个文件，也不能在不稳定源盘上直接复制到一半掉盘。仍要先判断能否安全读取。",ask:["时间线","客户做过的动作","设备类型","目标数据","能否稳定读取"],forbid:["不要为省事在不稳源盘直接复制"],next:"先判断能否安全读取，再决定镜像或直接导出。"},
+{cat:"补充",title:"微信/聊天记录丢失",risk:"B",route:"停用后按库结构提取",q:["微信","聊天记录","wechat","记录","qq记录"],suspect:"微信记录存在手机 EnMicroMsg.db 或电脑多文件里，误删/格式化后按对应库结构恢复；手机继续用会覆盖，电脑继续聊天也会写。",ask:["手机还是电脑","是否继续聊天/收消息","是否重装微信","目标聊天对象"],forbid:["手机继续聊","重装微信","往原盘写"],next:"停用设备，镜像后按微信库结构提取；电脑端先冻结对应数据文件。"},
+{cat:"补充",title:"设计/工程源文件损坏",risk:"B",route:"抽样校验后分析",q:["源文件","PSD","AI","工程文件","设计","PR","CAD","cdr"],suspect:"PSD/AI/PR/CAD 等源文件碎片严重，预览图与实际数据常不一致，需按文件头和连续数据校验，不能只按文件名交付。",ask:["软件版本","文件大小是否正常","是否坏道","是否只部分打不开"],forbid:["不要只按文件名/预览图交付","不要盲目深扫"],next:"镜像后按格式提取，并抽样打开源文件验证可编辑性再交付。"},
+{cat:"补充",title:"邮件数据损坏（PST/OST）",risk:"B",route:"镜像后按邮件库修复",q:["邮件","Outlook","PST","OST","foxmail","邮箱"],suspect:"邮件多为 PST/OST 或 Foxmail 箱文件，损坏后按邮件库结构修复；大文件易碎片，继续收信会覆盖。",ask:["用哪个客户端","文件大小","是否继续收信","报错内容"],forbid:["继续收信覆盖","直接导入覆盖原库"],next:"镜像后按邮件库修复并抽样导出验证，再交回客户。"},
+{cat:"补充",title:"虚拟机磁盘打不开（VMDK/VHD）",risk:"B",route:"镜像后挂载副本分析",q:["虚拟机","VMDK","VM","vhd","vmx"],suspect:"虚拟机磁盘是单文件但内含完整系统，损坏常导致整台虚拟机起不来，需先镜像再挂载副本分析，不能直接在原文件写。",ask:["虚拟化平台","文件大小","是否快照","能否开机"],forbid:["直接挂载原文件写入","删快照"],next:"镜像后挂载副本提取或修复，确认系统可启动再交付。"},
+{cat:"补充",title:"苹果手机误删/损坏",risk:"B",route:"停用后专业提取",q:["苹果","iPhone","ios","手机误删","iPhone误删"],suspect:"iPhone 数据有加密与沙盒，误删后需停用并走备份/专业提取，继续用会覆盖；有 iCloud 备份优先查云端。",ask:["是否越狱","有无 iCloud 备份","是否继续用","目标数据类型"],forbid:["继续用手机","恢复出厂","往里写"],next:"停用，先确认 iCloud/电脑备份；无备份则走专业提取，不承诺 100%。"},
+{cat:"补充",title:"安卓手机误删/格式化",risk:"B",route:"停用后镜像",q:["安卓","Android","手机误删","相册","安卓误删"],suspect:"安卓误删常因媒体库缓存与回收站机制，部分机型有回收站；继续拍或云同步会覆盖。",ask:["机型","是否云同步","是否继续拍","有无回收站"],forbid:["继续拍","清回收站前不先备份","往里写"],next:"停用，优先查云/回收站；无则只读镜像后按媒体库恢复。"},
+{cat:"补充",title:"手机恢复出厂/重置",risk:"B",route:"停用后评估覆盖",q:["恢复出厂","出厂重置","手机格式化","重置"],suspect:"恢复出厂会重写用户分区，能否恢复取决于是否覆盖与加密，需尽快停用避免云同步回填。",ask:["是否加密","有无云备份","重置后是否用过","目标数据"],forbid:["继续激活使用","登录云同步覆盖"],next:"停用，评估覆盖与云备份；无备份走专业提取，概率需实测后告知。"},
+{cat:"补充",title:"进水/摔落应急叮嘱",risk:"D",route:"物理评估（停手）",q:["进水","摔了","掉水","泡过","摔落"],suspect:"进水/摔落属物理风险，残留物与划伤会在通电时扩大损坏，先别通电别试，更别用吹风机热吹。",ask:["时间","是否通电试过","水的类型","是否拆过"],forbid:["通电","吹风机热吹","反复试开"],next:"不要通电，记录情况，转专业物理/电路评估，越快越好。"},
+{cat:"补充",title:"勒索病毒加密（文件被锁/改后缀）",risk:"B",route:"先隔离后镜像再解密评估",q:["勒索病毒","locked","encrypted",".locked",".encrypted","勒索","病毒加密","中病毒","文件被锁","后缀被改"],suspect:"文件被加密或篡改，优先怀疑勒索病毒；必须先隔离，否则备份和镜像都会被污染。",ask:["什么时候发现","文件后缀变成什么","是否有点过未知邮件/链接","其他电脑是否也中招","有没有离线备份"],forbid:["直接联网打开","在原盘上反复尝试解密","用不明解密工具直接写原盘","不隔离就接其他设备"],next:"先断电隔离，用只读方式镜像，再评估是否能通过密钥、漏洞补丁或备份恢复；不要轻易付赎金。"},
+{cat:"补充",title:"WannaCry/STOP/GlobeImposter 等勒索",risk:"B",route:"隔离后镜像+解密评估",q:["WannaCry","STOP","GlobeImposter","Phobos","DJVU",".wncry","勒索","永恒之蓝"],suspect:"典型勒索病毒，文件被加密且通常没有私钥无法解密；恢复重点在隔离、镜像和找备份。",ask:["后缀是什么","什么时候中毒","有没有安全软件日志","有没有离线/云备份"],forbid:["不隔离就继续用","随意运行解密程序","在原盘反复写"],next:"断网隔离，做只读镜像，检查是否有公开解密工具；否则只能走备份或部分重建。"},
+{cat:"补充",title:"VeraCrypt/TrueCrypt 加密容器打不开",risk:"A",route:"介质镜像+密钥收集",q:["VeraCrypt","TrueCrypt","加密容器","加密卷",".tc","密码忘了","密钥文件"],suspect:"加密容器或卷无法挂载，优先怀疑密码/密钥丢失、容器头损坏、文件系统损坏。",ask:["密码是否还记得","有没有密钥文件/恢复文件","容器文件大小是否正常","是否移动/重命名过"],forbid:["反复尝试密码导致可能覆盖","直接改容器后缀","用不明破解工具写原文件"],next:"先备份容器文件，收集密码/密钥/恢复文件；如有文件系统损坏，先做镜像再修。"},
+{cat:"补充",title:"Linux/EXT4 分区损坏或数据丢失",risk:"A",route:"镜像后按 EXT 结构分析",q:["Linux","EXT4","EXT3","ubuntu","centos","debian","分区损坏","挂载失败"],suspect:"EXT 文件系统超级块、inode 表、日志损坏或误删；Linux 文件删除后无回收站。",ask:["什么文件系统","有没有 fsck 过","删除还是分区损坏","原来挂载路径"],forbid:["运行 fsck -y 直接修复","在原分区继续写入","直接 mount -o force"],next:"停止挂载，做只读镜像或 dd，再按 EXT 结构分析超级块、inode、目录项。"},
+{cat:"补充",title:"Mac/APFS/HFS+ 数据丢失",risk:"A",route:"镜像后按 APFS/HFS+ 分析",q:["Mac","苹果电脑","APFS","HFS+","Time Machine","Macintosh","分区丢失","macOS"],suspect:"APFS/HFS+ 元数据、快照、目录结构损坏或误删；T2/Apple Silicon 还需考虑加密。",ask:["是 Intel 还是 M 系列芯片","是否开启 FileVault","有没有 Time Machine 备份","是否升级过系统"],forbid:["用磁盘工具直接修复","继续往系统盘写入","私自拆 T2 机器硬盘"],next:"停用设备，做只读镜像；有 FileVault 需密码/恢复密钥；再按 APFS/HFS+ 结构恢复。"},
+{cat:"补充",title:"苹果 T2 芯片 / Apple Silicon 加密",risk:"C",route:"芯片级/专业提取",q:["T2芯片","Apple Silicon","M1","M2","M3","FileVault","苹果加密","MacBook加密"],suspect:"Apple T2/安全芯片加密，硬盘与主板绑定；普通镜像工具无法读取，需要专业提取方案。",ask:["是否记得开机密码","是否启用 FileVault","机器能否开机","有没有 Apple ID"],forbid:["拆硬盘直接接普通设备","反复尝试密码","自行焊接读取"],next:"评估能否开机进入恢复模式；如不能，需芯片级或整机提取方案，先报价再动手。"},
+{cat:"补充",title:"SQL Server 数据库损坏（.mdf/.ndf）",risk:"B",route:"保护后按页级/库结构修复",q:["SQL Server",".mdf",".ndf",".ldf","数据库损坏","SQL","MSSQL"],suspect:"SQL Server 数据文件页损坏、日志文件异常、分离/附加失败、备份链断裂。",ask:["数据库版本","损坏提示是什么","有没有 .bak 备份","日志是否完整","是否做过 dbcc"],forbid:["直接附加可疑 mdf","在原文件上跑 repair_allow_data_loss","把恢复结果覆盖原文件"],next:"先复制/镜像原文件，按页级或备份链修复；严重损坏时评估能否导出表数据。"},
+{cat:"补充",title:"MySQL 数据库损坏或误删",risk:"B",route:"镜像后按 InnoDB/MyISAM 修复",q:["MySQL",".ibd",".frm","InnoDB","MyISAM","数据库误删","数据库表丢失"],suspect:"InnoDB 表空间、ibdata、redo/undo 日志损坏或表被误删/误清空。",ask:["MySQL 版本","是整库损坏还是某张表","有没有物理备份","是否执行过 drop/truncate"],forbid:["在原目录继续写","直接 import 可疑 ibd","不备份就重建库"],next:"停服务，做整个数据目录镜像；按 InnoDB 页结构或历史 frm/ibd 恢复表数据。"},
+{cat:"补充",title:"Oracle 数据库损坏或归档丢失",risk:"B",route:"保护后按控制文件/数据文件修复",q:["Oracle","ORA-","数据文件损坏","控制文件","归档日志","表空间"],suspect:"Oracle 控制文件、数据文件、redo/归档日志损坏或缺失；业务连续性要求高。",ask:["Oracle 版本","报错号","是否有归档备份","控制文件是否多路","最近是否扩表空间"],forbid:["重置日志强行 open","删除现有归档","在原路径覆盖数据文件"],next:"立即停库，镜像整个数据目录和归档；按控制文件、数据文件、日志一致性评估恢复方案。"},
+{cat:"补充",title:"MongoDB 集合/数据库误删或损坏",risk:"B",route:"镜像后按 WT/MMAPv1 恢复",q:["MongoDB","WiredTiger",".wt","集合误删","drop database","Mongo 数据丢失"],suspect:"WiredTiger 数据文件被删、集合 drop、数据库损坏或配置错误导致集合不可见。",ask:["MongoDB 版本","存储引擎","是否启用 journaling","有没有文件系统快照","删除后是否停服务"],forbid:["继续对 data/db 目录写入","直接启动可疑实例","不镜像就尝试恢复"],next:"停服务，镜像数据目录；按 WT 文件或 journal 恢复被删集合，必要时导出 JSON/BSON。"},
+{cat:"补充",title:"管家婆/用友/金蝶财务软件数据",risk:"B",route:"保护后按财务软件结构恢复",q:["管家婆","用友","金蝶","财务软件","账套",".mdf","数据库","财务数据"],suspect:"财务软件依赖的数据库或账套文件损坏、误删、覆盖；多为 SQL Server/Access/专有格式。",ask:["软件名称和版本","账套路径","数据库类型","最近是否结账/年结","有没有备份"],forbid:["直接重装软件覆盖原目录","在原数据库附加可疑文件","继续录入新数据"],next:"先镜像数据库和账套目录，确认格式后按对应软件结构恢复；优先保证账套完整。"},
+{cat:"补充",title:"美萍/思迅/科脉/收银进销存数据",risk:"B",route:"保护后按数据库+程序目录恢复",q:["美萍","思迅","科脉","收银软件","进销存",".mdf",".db","POS 数据"],suspect:"进销存/收银软件数据库损坏或误删，通常依赖 SQL Server/Access/SQLite/自有格式。",ask:["软件名称","数据库文件位置","前台/后台是否还能打开","是否有日结/备份"],forbid:["直接重装覆盖原目录","继续收银写入","不备份就尝试附加"],next:"镜像数据库和程序数据目录，按对应软件格式恢复；重点关注最近交易数据。"},
+{cat:"补充",title:"海康威视/大华/宇视监控录像恢复",risk:"B",route:"保护后按监控格式分析",q:["海康","大华","宇视","监控","录像","DVR","NVR",".dav",".h264","监控硬盘"],suspect:"监控硬盘被格式化、录像被删除、通道丢失、时间轴断裂或文件系统损坏。",ask:["品牌型号","通道数","丢失哪个时间段","是否被格式化","是否还在循环写入"],forbid:["继续让设备循环写入","直接格式化","用普通软件全盘扫描"],next:"停止使用，只读镜像；按品牌格式解析时间轴和通道，必要时手工重组索引。"},
+{cat:"补充",title:"行车记录仪 TF 卡数据丢失",risk:"B",route:"只读镜像后按格式分析",q:["行车记录仪","TF卡","行车记录","记录仪","dashcam","循环录像"],suspect:"TF 卡被格式化、循环覆盖、文件系统损坏或芯片级问题；格式多为专有封装。",ask:["品牌型号","卡容量","丢失哪个时间段","是否被格式化","是否继续使用"],forbid:["继续录像覆盖","直接格式化","用普通恢复软件深度扫描"],next:"停用并只读镜像；按品牌格式解析时间轴，循环覆盖情况下越早处理越好。"},
+{cat:"补充",title:"执法记录仪/单兵设备数据",risk:"B",route:"只读镜像+专有格式解析",q:["执法记录仪","单兵","执法仪","警务通","音视频","录像删除"],suspect:"设备被误删、格式化或文件系统损坏；数据可能涉密，需合规处理。",ask:["设备品牌和编号","丢失时间段","是否被覆盖","是否有管理站备份"],forbid:["私自传播数据","继续写入","用非安全环境处理"],next:"在合规前提下只读镜像，按专有格式解析；涉密数据注意交接和保密。"},
+{cat:"补充",title:"无人机/运动相机存储卡（GoPro/Insta360/DJI）",risk:"B",route:"只读镜像后按格式修复",q:["无人机","大疆","DJI","GoPro","Insta360","运动相机","航拍","TF卡"],suspect:"高码率视频文件大、索引易损，误删/格式化/断电导致视频碎片或索引丢失。",ask:["设备品牌","拍摄格式","是否 4K/高帧率","卡容量","是否格式化后继续拍"],forbid:["继续拍摄覆盖","直接格式化","用普通 FAT 恢复工具"],next:"只读镜像，按品牌格式和编解码特征重组视频索引和高码率碎片。"},
+{cat:"补充",title:"相机 CFexpress/XQD/CFast 卡数据",risk:"B",route:"只读镜像+按格式修复",q:["CFexpress","XQD","CFast","佳能","尼康","索尼","富士","相机卡"],suspect:"高速大容量卡，误删/格式化/异常断电/文件系统损坏；RAW/视频文件大。",ask:["卡类型","相机品牌","文件格式（RAW/视频）","是否继续拍照"],forbid:["继续拍照覆盖","直接格式化","用相机内置格式化"],next:"只读镜像；按文件系统结构和 RAW/视频格式特征恢复，注意大文件碎片重组。"},
+{cat:"补充",title:"照片 RAW（CR2/NEF/ARW/R3D）损坏",risk:"B",route:"抽样校验+按格式修复",q:["RAW","CR2","NEF","ARW","R3D","照片打不开","RAW损坏"],suspect:"RAW 文件头、预览图、传感器数据损坏；或恢复出来不完整/打不开。",ask:["相机品牌","能否预览缩略图","文件大小是否异常","是否恢复后打不开"],forbid:["直接修原文件","继续拍照覆盖","用非 RAW 专用工具"],next:"先镜像卡/盘，按 RAW 文件结构修复或重建；恢复后抽样校验可打开性。"},
+{cat:"补充",title:"压缩包 RAR/ZIP/7z 损坏",risk:"A",route:"镜像后按压缩结构修复",q:["RAR","ZIP","7z","压缩包损坏","解压失败","压缩文件"],suspect:"压缩包头、中央目录、分卷信息损坏或密码错误；有时是恢复不完整导致。",ask:["是否分卷","是否有密码","损坏提示是什么","压缩包大小是否正常"],forbid:["直接修复原压缩包","删除分卷","继续往同目录写"],next:"镜像原文件，按压缩格式结构修复头/目录；必要时尝试密码恢复或按部分提取。"},
+{cat:"补充",title:"Word/Excel/PPT/PDF 文档损坏",risk:"A",route:"镜像后按 Office/PDF 结构修复",q:["Word损坏","Excel损坏","PPT损坏","PDF损坏","文档打不开","Office文件"],suspect:"Office/OpenXML/PDF 文件结构损坏、恢复不完整、版本不兼容或被覆盖。",ask:["文件扩展名","能否打开一部分","文件大小是否变成0","是否恢复出来的"],forbid:["直接保存回原文件","反复用 Office 打开","继续编辑同一文件"],next:"复制到副本，按文档结构修复；恢复不完整时尝试从临时文件或缓存找回。"},
+{cat:"补充",title:"文件变成 0KB / 文件名乱码 / 拒绝访问",risk:"B",route:"镜像后按文件系统分析",q:["0KB","文件变成0字节","文件名乱码","拒绝访问","无权限","文件大小为0"],suspect:"文件系统元数据损坏、目录项错位、权限 ACL 损坏、病毒篡改或恢复不完整。",ask:["是整个盘还是部分文件夹","是否被病毒","文件名是乱码还是路径不存在","文件大小确实为0吗"],forbid:["直接 chkdsk","修改权限覆盖","在原盘继续写"],next:"镜像后分析文件系统目录项、ACL 和文件记录；按原始路径/名称重建。"},
+{cat:"补充",title:"硬盘 SMART 报警 / 重映射/坏道多",risk:"B",route:"受控镜像",q:["SMART","坏道","重映射","C5","C6","05","黄灯","红灯","硬盘报警"],suspect:"硬盘出现坏道、待映射扇区多、SMART 报警，随时可能恶化。",ask:["SMART 哪一项报警","05/C5/C6 数值","是否越来越慢","有没有异响"],forbid:["继续普通扫描","忽略 SMART 报警","把恢复结果写回问题盘"],next:"尽快做受控镜像，跳过坏道；镜像完成后再做逻辑恢复，优先保住可读区域。"},
+{cat:"补充",title:"BIOS/UEFI 识别不到硬盘",risk:"C",route:"接口/固件/电路排查",q:["BIOS","UEFI","识别不到","不识别","主板找不到","开机不认盘","硬盘没显示"],suspect:"接口、线材、供电、固件、电路板或硬盘本身损坏；可能涉及 BIOS 设置。",ask:["换过线/接口吗","硬盘是否转动","BIOS 里显示什么","是不是新主板"],forbid:["反复开关机测试","直接换电路板不备份 ROM","大力插拔接口"],next:"检查线材/接口/供电，换环境测试；如仍不识别，按固件/电路方向评估。"},
+{cat:"补充",title:"固态硬盘掉盘 / 主控损坏 / 变砖",risk:"C",route:"芯片级/专业恢复",q:["固态掉盘","SSD掉盘","主控坏","变砖","NVMe不识别","SATA SSD","M.2"],suspect:"SSD 主控、闪存、固件或电源管理异常；掉盘后可能瞬间无法识别。",ask:["品牌型号","主控方案","是否能间歇识别","是否发热严重"],forbid:["反复通电","普通软件扫描","私自拆主控"],next:"停用，评估主控方案；可走 PC-3000/芯片级或同主控热 Swap，先做镜像再处理。"},
+{cat:"补充",title:"文件被覆盖 / 同名替换 / 保存错误",risk:"A",route:"镜像后按覆盖分析",q:["文件被覆盖","同名替换","保存错了","覆盖保存","替换了文件","覆盖原文件"],suspect:"新数据写入覆盖了原文件数据区；恢复成功率取决于覆盖程度和文件系统。",ask:["什么时候覆盖的","文件大小是否变化","是否还在继续写入","是什么软件覆盖的"],forbid:["继续编辑/保存","往同目录下载","在原盘尝试恢复"],next:"立即停手，做镜像；按文件系统日志、临时文件、快照或底层残留分析可恢复性。"},
+{cat:"补充",title:"云盘/同步盘（百度网盘/OneDrive/iCloud）误删或同步丢失",risk:"A",route:"先查回收站/历史版本",q:["百度网盘","OneDrive","iCloud","同步丢失","云盘误删","云端数据","网盘"],suspect:"云端回收站/版本历史可能还有数据；本地同步后删除也有缓存可能。",ask:["哪个云盘","多久删除的","是否有回收站/版本历史","本地同步文件夹是否还有"],forbid:["先恢复本地再同步","清空云端回收站","继续大量上传覆盖"],next:"优先走官方回收站/版本历史；本地端停止同步并做镜像，检查本地缓存和临时文件。"},
+{cat:"补充",title:"Time Machine 备份损坏或无法恢复",risk:"B",route:"镜像后按稀疏包/快照分析",q:["Time Machine","时间机器",".sparsebundle","备份损坏","Mac备份"],suspect:"Time Machine 稀疏包、快照、HFS+/APFS 备份目录损坏；网络备份还可能涉及 NAS。",ask:["备份在本地硬盘还是 NAS",".sparsebundle 大小是否正常","能否挂载","是否有其他备份"],forbid:["直接删除.sparsebundle","用磁盘工具修复备份","继续往备份盘写"],next:"镜像备份盘或稀疏包，按 APFS/HFS+ 结构修复后提取历史版本文件。"},
+{cat:"补充",title:"双系统/多系统误删分区",risk:"A",route:"镜像后搜索分区表+文件系统",q:["双系统","多系统","误删分区","分区表","Linux误删","Windows误删","EFI分区"],suspect:"多系统环境下分区表被改写、EFI/系统分区误删，可能导致多个系统受影响。",ask:["原来有哪些系统","删了哪个分区","是否还能启动","有没有用分区工具"],forbid:["新建分区覆盖","重装系统","继续对磁盘写"],next:"只读镜像，搜索旧分区表和文件系统入口；优先恢复数据，再考虑修复启动。"},
+{cat:"补充",title:"门禁/工控机/嵌入式设备数据",risk:"C",route:"接口识别+镜像+专有格式",q:["门禁","工控机","嵌入式","PLC","考勤机","打卡机","设备数据"],suspect:"工控设备使用特殊存储介质和文件系统，普通电脑可能无法直接识别。",ask:["设备品牌和型号","存储介质类型","是否有导出接口","数据格式"],forbid:["私自拆机焊接","用通用工具强行格式化","不通电就拆芯片"],next:"按设备接口尽可能先导出或镜像；如必须拆芯片，先确认引脚和存储方案。"},
+{cat:"补充",title:"微信备份（电脑/手机）损坏或误删",risk:"B",route:"停用后按库结构提取",q:["微信备份损坏","WeChat备份","微信聊天记录备份","电脑微信","手机备份"],suspect:"微信电脑版 .db 或手机备份中的聊天记录库损坏、误删或版本不兼容。",ask:["是电脑微信还是手机备份","什么版本","备份文件大小","是否换过手机"],forbid:["继续登录微信覆盖","直接重装微信","在原备份文件上修改"],next:"停用相关应用，镜像备份文件；按 SQLite/微信库结构提取文字、图片、视频记录。"},
+{cat:"补充",title:"QQ/陌陌/钉钉/企业微信聊天记录",risk:"B",route:"停用后按库结构提取",q:["QQ聊天记录","陌陌","钉钉","企业微信","聊天记录","消息记录"],suspect:"各类即时通讯应用数据存储在本地数据库或加密容器中，误删/重装后丢失。",ask:["哪个应用","手机还是电脑","是否卸载/重装","是否有本地备份"],forbid:["继续使用该应用写入","不备份就重装","直接恢复覆盖原库"],next:"停用应用，镜像数据目录；按对应应用的 SQLite/加密库结构提取聊天记录。"},
+{cat:"补充",title:"手机摔坏/进水/不开机",risk:"C",route:"芯片级/整机提取",q:["手机摔坏","手机进水","不开机","黑屏","主板坏","手机没反应"],suspect:"手机主板、字库、电源、CPU 或存储芯片损坏；需要先修开机或芯片级提取。",ask:["手机品牌型号","是否进水","是否摔过","能否充电","是否有云备份"],forbid:["反复充电开机","微波炉烘干","自行拆机"],next:"先评估能否修开机；如不能，按芯片型号评估整机提取或字库读取方案。"}
+];
+const QUICK_TAGS=[
+"完全不通电",
+"有异响或敲盘",
+"转一下就停",
+"识别但很慢",
+"提示需要格式化",
+"分区突然没了",
+"容量变 0 或明显不对",
+"型号异常或乱码",
+"误删除文件",
+"误格式化",
+"重装系统后文件没了",
+"RAID 重建失败",
+"U 盘不识别",
+"存储卡提示错误",
+"SSD 删除后找不到",
+"外置硬盘时好时坏",
+"分区只剩一个了",
+"文件夹能看到但打不开",
+"硬盘响几声就没反应",
+"盘很慢但还能打开",
+"我已经用软件扫了一晚上",
+"我恢复出来的文件打不开",
+"NAS 提示降级",
+"RAID 换盘后更坏了",
+"服务器系统起不来",
+"BitLocker 要密钥",
+"视频文件很多打不开",
+"数据库坏了",
+"财务软件打不开",
+"手机内存卡照片没了",
+"监控只要某一天录像",
+"硬盘进水了但干了",
+"别人修过没修好",
+"它突然坏了",
+"我没有动过",
+"我就点了一下修复",
+"我已经恢复出来一部分",
+"以前有人修过",
+"能看到文件名但打不开",
+"复制到一半就不动了",
+"灯亮但不显示盘符",
+"NAS 提示硬盘坏了",
+"U 盘发热",
+"只要几个文件",
+"微信/聊天记录丢失",
+"设计/工程源文件损坏",
+"邮件数据损坏（PST/OST）",
+"虚拟机磁盘打不开（VMDK/VHD）",
+"苹果手机误删/损坏",
+"安卓手机误删/格式化",
+"手机恢复出厂/重置",
+"进水/摔落应急叮嘱",
+"勒索病毒加密（文件被锁/改后缀）",
+"WannaCry/STOP/GlobeImposter 等勒索",
+"VeraCrypt/TrueCrypt 加密容器打不开",
+"Linux/EXT4 分区损坏或数据丢失",
+"Mac/APFS/HFS+ 数据丢失",
+"苹果 T2 芯片 / Apple Silicon 加密",
+"SQL Server 数据库损坏（.mdf/.ndf）",
+"MySQL 数据库损坏或误删",
+"Oracle 数据库损坏或归档丢失",
+"MongoDB 集合/数据库误删或损坏",
+"管家婆/用友/金蝶财务软件数据",
+"美萍/思迅/科脉/收银进销存数据"
+];
+
+/* ===================== 可直接复制的「发给客户」话术生成 ===================== */
+function genCustomerScript(item){
+  const r=RISK_LABEL[item.risk];
+  let m="您好，先帮您做个诊断，暂时不先承诺结果——诊断的目的就是判断这块盘现在还能不能安全读取。\n";
+  m+="目前看，您这个情况"+item.suspect+"\n";
+  if(item.risk==="C"||item.risk==="D"){
+    m+="这属于"+r+"，已经不太像单纯软件问题。继续通电或继续自己试，可能不是增加恢复机会，而是增加损坏。所以我们建议先停在这里，把风险跟您说清楚，再决定是否进物理/固件/芯片级处理。\n";
+  } else if(item.route.indexOf("镜像")>=0||item.route.indexOf("受控")>=0){
+    m+="为了不反复折腾原盘、也避免坏道扩大或系统写入新数据，我们建议先做只读镜像，把能读出来的内容转到安全介质上，后面分析都在副本上做。\n";
+  } else {
+    m+="我们建议先做只读镜像，把能读出来的内容转到安全介质上再分析，原盘尽量不再动。\n";
+  }
+  m+="有几点您先注意：原盘尽量不要再写入、不要点格式化/修复、不要把恢复结果存回原盘。\n";
+  m+="至于能不能恢复、要多少费用和时间，要等镜像和分析之后才有把握的结论，我不会在没有把握时给您打包票。";
+  return m;
+}
+function componentTags(item){
+  const arr=[];
+  arr.push("【开场】我们先做诊断，不先承诺结果；诊断的目的是判断设备还能不能安全读取。");
+  arr.push("【解释】"+item.suspect);
+  if(item.route.indexOf("镜像")>=0||item.route.indexOf("受控")>=0)
+    arr.push("【先镜像】我们不是不想直接恢复，而是不想在原盘上试错。现在继续扫描，可能让坏道扩大、掉盘加重，或让系统写入新数据。先做镜像，把能读出来的内容转移到安全介质，后续分析都在副本上做。");
+  if(item.risk==="C"||item.risk==="D")
+    arr.push("【停手】这个现象已经不像单纯软件问题（"+item.title+"）。继续通电或继续重建，可能不是增加恢复机会，而是增加损坏。我们先停在这里，把风险说清楚，再决定是否进入物理/固件/芯片级处理。");
+  arr.push("【边界】恢复结果不会保存回原盘；能看到文件名不代表文件一定可用，我们会做抽样打开和大小校验。");
+  return arr;
+}
+
+/* ===================== 匹配逻辑 ===================== */
+function scoreItem(item, q){
+  if(!q) return 0;
+  let s=0; const low=q.toLowerCase();
+  item.q.forEach(k=>{ if(low.indexOf(k.toLowerCase())>=0) s+=3; });
+  [item.title,item.suspect,(item.ask||[]).join(""),(item.forbid||[]).join("")].forEach(t=>{
+    if(t&&t.toLowerCase().indexOf(low)>=0) s+=1; });
+  const hay=(item.title+" "+item.suspect+" "+(item.ask||[]).join(" ")+" "+(item.forbid||[]).join(" ")+" "+item.next).toLowerCase();
+  if(hay.indexOf(low)>=0) s+=1;
+  return s;
+}
+function diagnose(q){
+  const list=KNOWLEDGE.map(it=>({it,sc:scoreItem(it,q)})).filter(x=>x.sc>0)
+    .sort((a,b)=>b.sc-a.sc).slice(0,4);
+  return list.length?list:null;
+}
+
+/* ===================== 渲染 ===================== */
+function cardHTML(item){
+  const msg=genCustomerScript(item);
+  const tags=componentTags(item).map(t=>{
+    const m=t.match(/^【(.+?)】(.*)$/s); return "<div class='tag'>【"+m[1]+"】"+esc(m[2])+"</div>";
+  }).join("");
+  const ask=item.ask.map(a=>"<li>"+esc(a)+"</li>").join("");
+  const forbid=item.forbid.map(a=>"<li>"+esc(a)+"</li>").join("");
+  return `<div class="card card-${item.risk}">
+    <div class="banner b-${item.risk}">
+      <div class="bt-title">${esc(item.title)} <span class="badge b-${item.risk}">${RISK_LABEL[item.risk]}</span></div>
+      <div class="bt-sub">处理路线：${esc(item.route)} ｜ 类别：${esc(item.cat)}</div>
+    </div>
+    <div class="sec"><div class="sec-h"><span class="ic ic-sus">判</span>下一步判断（优先怀疑）</div><div>${esc(item.suspect)}</div></div>
+    <div class="sec"><div class="sec-h"><span class="ic ic-ask">问</span>该问客户什么（追问）</div><ul>${ask}</ul></div>
+    <div class="sec"><div class="sec-h"><span class="ic ic-for">禁</span>禁止动作（雷区）</div><ul>${forbid}</ul></div>
+    <div class="sec"><div class="sec-h"><span class="ic ic-nxt">做</span>可进行的操作（下一步）</div><div>${esc(item.next)}</div></div>
+    <div class="sec"><div class="sec-h"><span class="ic ic-say">话</span>发给客户的话术（可直接复制）</div>
+      <div class="say-box"><span class="say-text">${esc(msg)}</span><button class="copy-btn">复制</button></div>
+      <details><summary>查看话术拆解（学习用）</summary><div style="margin-top:8px">${tags}</div></details>
+    </div>
+  </div>`;
+}
+function renderResults(q){
+  const box=document.getElementById("results"); const info=document.getElementById("matchInfo");
+  if(!q||!q.trim()){ box.innerHTML="<div class='empty'>在上方描述客户情况，或点下面的快捷标签，我会给出判断、操作和可直接复制的话术。</div>"; info.textContent=""; return; }
+  const res=diagnose(q.trim());
+  if(!res){
+    box.innerHTML=`<div class="card card-C"><div class="banner b-C"><div class="bt-title">没匹配到标准场景</div>
+      <div class="bt-sub">已给通用接盘底线</div></div>
+      <div class="sec" style="border-top:none"><div class="sec-h"><span class="ic ic-nxt">做</span>通用接盘底线</div>
+      <div>① 先让客户停止使用设备，别再通电/拍摄/开机；② 记录设备类型、故障经过、客户做过什么；③ 外观检查（进水/摔/烧焦/拆修）；④ 不确定就先镜像、不承诺结果、不原盘写回。可换更具体的说法再试。</div></div></div>`;
+    info.textContent="未命中，已给通用建议"; attachCopy(); return;
+  }
+  box.innerHTML=res.map(r=>cardHTML(r.it)).join("");
+  info.textContent="匹配到 "+res.length+" 个场景（按相关度排序）"; attachCopy();
+}
+function attachCopy(){
+  document.querySelectorAll("#results .say-box").forEach(box=>{
+    const txt=box.querySelector(".say-text").textContent;
+    box.querySelector(".copy-btn").onclick=()=>copyText(txt,box.querySelector(".copy-btn"));
+  });
+}
+function showItem(item){
+  const box=document.getElementById("results");
+  box.innerHTML=cardHTML(item);
+  box.scrollIntoView({behavior:"smooth",block:"start"});
+  attachCopy();
+}
+function groupChips(items){
+  const groups={};
+  items.forEach(it=>{ const c=classify(it).cat; if(!groups[c])groups[c]=[]; groups[c].push(it); });
+  return PLAIN_CATS.map(c=>({cat:c,items:groups[c]||[]})).filter(g=>g.items.length);
+}
+function renderChipGrid(filter=""){
+  const box=document.getElementById("chipGrid");
+  const term=(filter||"").toLowerCase().trim();
+  const items=KNOWLEDGE.filter(it=>{
+    if(!term) return true;
+    return it.title.toLowerCase().includes(term) || it.q.some(k=>k.toLowerCase().includes(term)) || it.suspect.toLowerCase().includes(term);
+  });
+  document.getElementById("sceneTotal").textContent=items.length;
+  const groups=groupChips(items);
+  if(!groups.length){ box.innerHTML=`<div class="empty">没找到匹配场景，换个关键词试试。</div>`; return; }
+  box.innerHTML=groups.map((g,i)=>`
+    <div class="chip-group" style="animation-delay:${i*60}ms">
+      <div class="chip-group-h">${esc(g.cat)} <span class="muted" style="font-weight:400">(${g.items.length})</span></div>
+      <div class="chips">${g.items.map(it=>`<span class="chip" data-title="${esc(it.title)}">${esc(it.title)}</span>`).join("")}</div>
+    </div>
+  `).join("");
+  box.querySelectorAll(".chip").forEach(el=>{ el.onclick=()=>{
+    const title=el.getAttribute("data-title");
+    const item=KNOWLEDGE.find(it=>it.title===title);
+    if(item) showItem(item);
+  };});
+}
+document.getElementById("chipFilter").addEventListener("input",e=>renderChipGrid(e.target.value));
+
+
+/* ===================== 话术速查 ===================== */
+const CORE={
+  "七步接盘法":["询问背景：设备类型、故障经过、客户做过什么、数据重要程度","外观检查：接口、外壳、标签、进水、摔伤、拆修痕迹、烧焦味","风险分级：低风险逻辑故障 or 中高风险物理/固件故障","只读识别：确认型号、容量、SMART、读取稳定性","镜像优先：能稳定读就做镜像，不在原盘上做恢复实验","分类分析：逻辑走文件系统、物理/固件走专业诊断、RAID 走成员盘重组","交付记录：保存描述、诊断、风险提示、镜像日志和导出清单"],
+  "三个绝对不要":["不要在客户原盘上初始化、格式化、修复文件系统、写分区表、重建 RAID","不要对异响/掉盘/读到固定位置卡死的机械盘用普通软件长时间硬扫","不要在不确定 ROM/固件/磁头/芯片算法的情况下换板、开盘、写固件或焊芯片"],
+  "四个优先级":["第一优先级：保护源介质","第二优先级：获取尽可能完整、稳定的镜像","第三优先级：解释文件系统和目录结构","第四优先级：导出客户要的数据（新手常把第四步放第一步）"],
+  "风险等级":["A 级低风险：误删/误格式化/分区丢失，识别正常、容量正常、读取稳定、无异响","B 级中风险：能识别但很慢、有坏道、SMART 异常、读到固定位置卡死、频繁掉盘","C 级高风险：异响、敲盘、转一下停、不稳定识别、容量异常、型号异常、疑似固件或磁头问题","D 级停止操作：进水未处理、明显烧毁、盘片疑似划伤、开盘污染、客户多次错误处理、RAID 原阵列正在自动重建"],
+  "接盘口头原则":["我们先做诊断，不先承诺结果；诊断目的是判断盘还能不能安全读取","如果可以读取，优先做镜像；如果不稳定，继续扫盘会增加风险","恢复结果不能保存回原盘"],
+  "常用沟通句":["现在先做诊断，不先承诺结果；诊断的目标是判断能不能安全读取","如果设备读取稳定，我们优先镜像；如果不稳定，继续扫盘会增加风险","恢复结果不会保存回原盘，原盘会尽量保持接盘时的状态","能看到文件名不代表文件一定可用，我们会做抽样打开和大小校验","RAID 的重点不是单块盘能不能扫到文件，而是成员盘顺序和阵列参数能不能正确重组"],
+  "先镜像怎么说":["我们不是不想直接恢复，而是不想在原盘上试错。现在继续扫描，可能让坏道扩大、掉盘加重，或让系统写入新数据。先做镜像，是把能读出来的内容尽量转移到安全介质，后面分析都在副本上做，不会反复折腾原盘。"],
+  "现在要停手怎么说":["这个现象已经不像单纯软件问题，比如有异响、容量异常、长时间无响应或 RAID 正在错误重建。继续通电或继续重建，可能不是增加恢复机会，而是增加损坏。我们先停在这里，把风险说清楚，再决定是否进入物理、固件或阵列级处理。"],
+  "报价前不要承诺":["不要承诺百分百恢复","不要承诺原目录一定完整","不要承诺当天完成","不要承诺价格不变（诊断前只能给范围）"],
+  "报价前确认变量":["介质类型：机械盘/SSD/U盘/存储卡/NAS/服务器 RAID 成本结构不同","故障类型：逻辑/坏道/物理/固件/芯片级/阵列级难度差异大","客户目标：只要几个文件，还是要完整目录和大量数据","风险历史：是否格式化/重装/扫描/写回/重建/开盘/找别人修过","验证要求：照片能预览≠视频可播放，数据库能复制≠业务系统可用"],
+  "交付前怎么说清楚":["说明导出了哪些目录、总容量多少、抽样打开了哪些关键文件、哪些文件可能损坏、哪些目录结构不完整、哪些数据因覆盖或介质损坏无法确认。照片/视频/工程文件/数据库抽样验证要选客户最关心的类型。"]
+};
+/* 接单沟通话术库：客户常问 + 可直接复制的完整回复 + 备注（给自己看） */
+const SCRIPTS=[
+  {q:"你们这恢复多少钱？别家比你们便宜。",a:"我们按故障类型和难度报价，不是一口价。逻辑类（误删/格式化）和物理类（异响/坏道/开盘）成本差别很大，诊断前只能给范围，最终要看镜像和分析后的实际情况。我不会为了接单先报低价、做完再加价，这点您放心。",note:"不陷入低价竞争，强调按故障定价、不乱加价。"},
+  {q:"能不能便宜点 / 优惠一下？",a:"价格主要看介质和故障难度，利润空间不大；但如果您能确认恢复范围（比如只要某几个关键文件），我可以在不增加风险的前提下给您一个更聚焦的报价。您先告诉我最想要的是什么数据？",note:"用‘缩小范围’换价格，而不是无脑打折。"},
+  {q:"要不要开发票？",a:"可以，支持开具发票；含税和不含税价格会提前说明，您接单时告诉我抬头就行。",note:"提前说明含税/不含税。"},
+  {q:"我着急，能不能加急？",a:"可以加急，但前提是设备能稳定读取。如果盘本身有异响、坏道，越急越不能硬扫，反而要把镜像做稳。您急的是哪部分数据？我先排优先级。",note:"加急的前提是介质允许，别为赶时间把盘搞坏。"},
+  {q:"我的数据保密吗？",a:"保密的。我们只为恢复而接触数据，恢复完按您要求销毁临时镜像或归还介质，不会外传、不会留底。企业客户可以签保密协议。",note:"企业客户主动提签 NDA。"},
+  {q:"你先看一眼，能恢复再给钱行不行？",a:"诊断（判断能不能安全读取）可以免费或低价先做；但真正的数据提取要在镜像和分析之后才有结论，这一步要占用设备和时间，所以需要先确认接单。恢复不成功，按约定不收或只收检测费，这点我们写清楚。",note:"区分‘诊断’和‘提取’两个阶段，避免白嫖。"},
+  {q:"怎么付钱？要定金吗？",a:"通常先付一部分定金确认接单、覆盖镜像耗材，余款交付确认后付清。具体比例我们可以按难度商量，全程有记录和清单。",note:"定金防跑单，余款交付后付。"},
+  {q:"你们上门取件吗？还是我寄过去？",a:"都行。武汉市内我可以上门取件并当场做外观记录；外地您用泡沫+硬盒快递，别用塑料袋。寄之前先别再通电，拍个外观照片发我。",note:"强调包装和‘别再通电’。"},
+  {q:"你们店在哪？我怎么过来？",a:"店在武汉江汉区民主一街新星电子电脑商场（天马专业数据恢复中心），您到了直接说找我就行。来之前先把情况用文字发我，我帮您预判一下，免得白跑。",note:"用真实门店信息，来前先文字预判。"},
+  {q:"恢复不出来怎么算？",a:"如果镜像都做不完整、确实无残留，我们不收恢复费，只收已发生的检测/耗材成本，并给您书面说明原因。能恢复多少、哪些文件损坏，交付前都会抽样验证给您看。",note:"失败只收成本，书面说明。"},
+  {q:"我能先看看再付钱吗？",a:"可以。交付前我们做抽样验证：照片能打开、视频能播放、文档能进、数据库能挂，您确认无误再付尾款。只看文件名不算确认。",note:"以‘抽样可打开’为验收标准。"},
+  {q:"这数据是我们公司的，合法吗？",a:"合法使用我们才接。公司数据麻烦提供一下营业执照副本和授权证明，说明数据归属；个人数据涉及隐私的，我们签保密协议。来历不清的我们不做。",note:"公司数据要授权+营业执照，守住合规。"},
+  {q:"有没有质保 / 以后打不开怎么办？",a:"交付后我们给一份验证清单和镜像留存期说明；建议重要数据当场做双备份。恢复出的文件本身我们不承诺永久可用（介质会再坏），但交付时的验证结果是真实的。",note:"质保指的是‘交付时验证真实’，不是永久包数据。"},
+  {q:"大概要多久？",a:"逻辑类一般当天到一两天；有坏道要受控镜像可能几天；物理/固件/开盘视设备和备件，时间不定。我不为了显得快就报‘当天’，那样容易误事。",note:"不打包票当天，分档说明。"},
+  {q:"（进水/摔了）我现在通电试试还能不能读。",a:"先别通电！进水或摔过的盘通电可能让残留物和划伤扩大损坏，反而把能救的也搞坏。您把盘放干燥处别动，我帮您判断要不要进物理评估，越快处理越好。",note:"应急叮嘱：别通电、别吹风机热吹。"},
+  {q:"（误删）我接着用电脑没事吧？",a:"系统盘最好先关机别用。您删掉的文件，系统还在往盘里写缓存、更新、临时文件，越用覆盖越多、能找回来的越少。能拆就拆下来只读，不能拆也尽量少动。",note:"误删后‘停用’是第一原则。"},
+  {q:"监控只要某一天的录像能调出来吗？",a:"监控是循环覆盖的，越放越覆盖。您先把录像机停录、别让它继续写，告诉我品牌、通道和目标日期时间，我按时间轴去提那一段，能提多少要看有没有被覆盖。",note:"监控先停录，按时间轴提取。"},
+  {q:"微信聊天记录能恢复吗？",a:"看情况。手机别再聊、电脑端别再收消息，避免覆盖；有 iCloud/电脑备份的先查云端。没有备份就要按微信库结构提取，越早发现概率越高。您是手机还是电脑？",note:"微信先停用避免覆盖，先查备份。"},
+  {q:"苹果/安卓手机误删了照片。",a:"先别继续拍、别清‘最近删除’，有云同步的先看云端。没有就停用手机会读镜像再恢复。手机继续用会覆盖，越早处理越好。",note:"手机先查云/回收站，再镜像。"},
+  {q:"手机恢复出厂了还能找回来吗？",a:"恢复出厂会重写用户区，能不能找回取决于有没有覆盖和加密。您先别激活、别登录云同步（会回填），告诉我机型和有没有云备份，我评估后再说概率。",note:"恢复出厂后先停用、别登录云。"},
+  {q:"我们财务软件/数据库打不开了。",a:"这类数据常包含库+附件+配置+授权，不是一个文件那么简单。您先别在原机继续开软件，把数据目录整体打包，我镜像后在副本上按库结构修复，并抽样验证能打开再交付。",note:"整体数据目录，别只导单个文件。"},
+  {q:"PSD/AI 源文件打不开了。",a:"源文件碎片多，预览图看着在、实际数据可能不全。我按文件头连续数据校验，恢复后抽样用软件打开确认能编辑，才算成功，不只看文件名。",note:"源文件以‘能打开编辑’为验收。"},
+  {q:"我们 RAID/服务器阵列坏了。",a:"阵列最关键的是成员盘顺序和参数，不是单盘扫文件。您千万别再在线重建、别换错盘、别改槽位，先把每块盘编号拍照、逐盘镜像，我在副本上虚拟重组。",note:"RAID 严禁在线重建，先保成员盘。"},
+  {q:"Outlook 邮件打不开 / 收不了。",a:"邮件库（PST/OST）损坏要按库结构修，您先别继续收信（会覆盖），把库文件冻结，我镜像后修复并抽样导出验证。",note:"邮件先冻结库文件别收信。"},
+  {q:"虚拟机打不开了，里面的系统要紧。",a:"虚拟机磁盘是单文件但装着整台系统，别直接在原文件上挂载写。我先镜像，再挂副本提取或修复，确认能启动再交付。",note:"虚拟机先镜像再挂副本。"},
+  {q:"盘被 BitLocker 锁了要密钥。",a:"加密盘底层能镜像，但没有密钥看到的只是密文。您先找微软账户/公司 IT/打印过的恢复密钥；有密钥我们再解。别格式化试图跳过加密。",note:"加密先找密钥，别格式化。"},
+  {q:"我们好几台机器的数据都要恢复，能打包吗？",a:"可以，企业批量我们按设备和难度列清单、签合同、分阶段交付并各自验证。您先给我一份设备清单和优先级，我排个计划和报价区间。",note:"企业批量走清单+合同+分阶段。"}
+];
+(function(){
+  const box=document.getElementById("sayBox");
+  let h="";
+  const order=["七步接盘法","三个绝对不要","四个优先级","风险等级","接盘口头原则","常用沟通句","先镜像怎么说","现在要停手怎么说","报价前不要承诺","报价前确认变量","交付前怎么说清楚"];
+  h+="<div class='grp-h'>一、手册核心原则（背熟）</div>";
+  h+=order.map(k=>`<div class="card"><div class="bt-title" style="font-size:15px">${k}</div>`+
+     (Array.isArray(CORE[k])?("<ul style='margin-top:8px'>"+CORE[k].map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>"):("<div class='say-box' style='margin-top:8px'>"+esc(CORE[k])+"</div>"))+
+     `</div>`).join("");
+  h+="<div class='grp-h'>二、可直接复制的接单沟通话术库（客户常问）</div>";
+  h+=SCRIPTS.map(s=>`<div class="card"><div class="sec" style="border-top:none;margin-top:0"><div class="sec-h"><span class="ic ic-ask">客</span>客户常说</div>
+       <div style="color:#cdd7e0">“${esc(s.q)}”</div></div>
+     <div class="sec"><div class="sec-h"><span class="ic ic-say">话</span>可直接复制的回复</div>
+       <div class="say-box"><span class="say-text">${esc(s.a)}</span><button class="copy-btn">复制</button></div></div>
+     <div class="sec"><div class="sec-h"><span class="ic ic-nxt" style="background:rgba(154,167,180,.18);color:#aeb9c4">注</span>给自己看</div>
+       <div class="muted">${esc(s.note)}</div></div></div>`).join("");
+  box.innerHTML=h;
+  box.querySelectorAll(".say-box").forEach(b=>{
+    const txt=b.querySelector(".say-text").textContent;
+    b.querySelector(".copy-btn").onclick=()=>copyText(txt,b.querySelector(".copy-btn"));
+  });
+})();
+
+/* ===================== 练习模式：分步操作演练 ===================== */
+const QUIZ=KNOWLEDGE.filter(k=>k.cat==="说法"||k.cat==="场景"||k.cat==="现象"||k.cat==="补充");
+
+/* —— 练习模式选项池：全部用大白话，零基础也能看懂 —— */
+const PLAIN_CATS=[
+  "误删/格式化/分区乱了（文件还在，软件能找回）",
+  "硬盘有坏道，读得慢、总卡住/复制失败",
+  "硬盘硬件坏了（磁头/固件，要专业设备）",
+  "进水/摔了/异响——立刻停手别通电",
+  "多块盘组的阵列/服务器（RAID/NAS）",
+  "盘被加密了（BitLocker 等），要先有密钥",
+  "固态硬盘 SSD（删了可能直接没）",
+  "U盘/内存卡/手机/微信记录",
+  "数据库/邮件/虚拟机/视频/文档",
+  "其他 / 拿不准"
+];
+const PLAIN_ROUTES=[
+  "先做只读镜像，再用软件扫描找回文件（不动原盘）",
+  "用专业设备做受控镜像，跳过坏道慢慢克隆",
+  "先别再通电，转专业物理/固件设备处理（可能要开盘）",
+  "先给每块盘编号拍照，逐盘镜像，再虚拟重组",
+  "先拿到密钥/密码，再对介质做底层镜像",
+  "尽快做离线镜像，别再往盘里写",
+  "先停用设备、查云备份，再走专业提取",
+  "先镜像保住原盘，再按文件类型专门修复",
+  "先隔离断网，再镜像评估解密/杀毒"
+];
+const PLAIN_TOOLS=[
+  "R-Studio / UFS Explorer + 超级硬盘数据恢复软件（逻辑扫描）",
+  "PC-3000 + MRT 做受控镜像（跳过坏道）",
+  "PC-3000 + MRT + 无尘开盘（换磁头/物理修）",
+  "R-Studio / UFS Explorer 先逐盘镜像，再虚拟重组阵列",
+  "先做介质镜像，再让客户提供密钥/密码",
+  "PC-3000（SSD版）+ R-Studio / UFS Explorer 尽快镜像",
+  "手机/微信提取工具 + 优先查 iCloud/云备份",
+  "R-Studio / UFS Explorer + 对应数据库/视频/文档修复工具",
+  "先断网隔离，只读镜像，再评估解密/恢复"
+];
+let quizCur=null, quizChoices=[null,null,null], quizStep=0, quizAuto=null;
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+/* 同一个场景统一归类：cat/route/tool 都取自上面的池子，保证选项里一定含正确答案 */
+function classify(item){
+  const t=item.title, r=item.route, risk=item.risk;
+  if(t.includes("RAID")||t.includes("NAS")||r.includes("RAID")||r.includes("阵列")||t.includes("服务器"))
+    return {cat:"多块盘组的阵列/服务器（RAID/NAS）", route:"先给每块盘编号拍照，逐盘镜像，再虚拟重组", tool:"R-Studio / UFS Explorer 先逐盘镜像，再虚拟重组阵列"};
+  if(t.includes("BitLocker")||t.includes("密钥")||r.includes("加密")||t.includes("VeraCrypt")||t.includes("TrueCrypt"))
+    return {cat:"盘被加密了（BitLocker 等），要先有密钥", route:"先拿到密钥/密码，再对介质做底层镜像", tool:"先做介质镜像，再让客户提供密钥/密码"};
+  if(t.includes("SSD")||t.includes("固态")||r.includes("TRIM")||t.includes("掉盘")||t.includes("主控"))
+    return {cat:"固态硬盘 SSD（删了可能直接没）", route:"尽快做离线镜像，别再往盘里写", tool:"PC-3000（SSD版）+ R-Studio / UFS Explorer 尽快镜像"};
+  if(t.includes("U盘")||t.includes("存储卡")||t.includes("相机卡")||t.includes("sd卡")||t.includes("TF卡")||t.includes("内存卡")||t.includes("CFexpress")||t.includes("XQD")||t.includes("CFast")||t.includes("手机")||t.includes("微信")||t.includes("QQ")||t.includes("钉钉")||t.includes("陌陌")||t.includes("企业微信"))
+    return {cat:"U盘/内存卡/手机/微信记录", route:"先停用设备、查云备份，再走专业提取", tool:"手机/微信提取工具 + 优先查 iCloud/云备份"};
+  if(t.includes("进水")||t.includes("摔")||t.includes("泡")||t.includes("不开机")||t.includes("黑屏")||t.includes("主板坏")||risk==="D")
+    return {cat:"进水/摔了/异响——立刻停手别通电", route:"先别再通电，转专业物理/固件设备处理（可能要开盘）", tool:"PC-3000 + MRT + 无尘开盘（换磁头/物理修）"};
+  if(t.includes("勒索")||t.includes("病毒")||t.includes("WannaCry")||t.includes("STOP")||t.includes("GlobeImposter")||t.includes("Phobos")||t.includes("DJVU"))
+    return {cat:"数据库/邮件/虚拟机/视频/文档", route:"先隔离断网，再镜像评估解密/杀毒", tool:"先断网隔离，只读镜像，再评估解密/恢复"};
+  if(risk==="C"||r.includes("物理")||r.includes("固件")||r.includes("芯片")||t.includes("异响")||t.includes("敲盘")||t.includes("转一下就停")||t.includes("容量变")||t.includes("不识别")||t.includes("识别不到")||t.includes("不显示")||t.includes("BIOS")||t.includes("门禁")||t.includes("工控")||t.includes("T2")||t.includes("Apple Silicon")||t.includes("U盘发热"))
+    return {cat:"硬盘硬件坏了（磁头/固件，要专业设备）", route:"先别再通电，转专业物理/固件设备处理（可能要开盘）", tool:"PC-3000 + MRT + 无尘开盘（换磁头/物理修）"};
+  if(r.includes("受控")||t.includes("很慢")||t.includes("复制到一半")||t.includes("SMART")||t.includes("坏道"))
+    return {cat:"硬盘有坏道，读得慢、总卡住/复制失败", route:"用专业设备做受控镜像，跳过坏道慢慢克隆", tool:"PC-3000 + MRT 做受控镜像（跳过坏道）"};
+  if(t.includes("数据库")||t.includes("邮件")||t.includes("虚拟机")||t.includes("源文件")||t.includes("视频")||r.includes("数据库")||r.includes("邮件库")||r.includes("视频")||t.includes("财务")||t.includes("监控")||t.includes("RAW")||t.includes("压缩")||t.includes("Office")||t.includes("PDF")||t.includes("文档")||t.includes("Time Machine")||t.includes("云盘")||t.includes("双系统")||t.includes("文件被覆盖")||t.includes("文件变成")||t.includes("0KB"))
+    return {cat:"数据库/邮件/虚拟机/视频/文档", route:"先镜像保住原盘，再按文件类型专门修复", tool:"R-Studio / UFS Explorer + 对应数据库/视频/文档修复工具"};
+  return {cat:"误删/格式化/分区乱了（文件还在，软件能找回）", route:"先做只读镜像，再用软件扫描找回文件（不动原盘）", tool:"R-Studio / UFS Explorer + 超级硬盘数据恢复软件（逻辑扫描）"};
+}
+function getTools(item){
+  const r=item.route, risk=item.risk, t=item.title;
+  if(r.includes("RAID")||r.includes("阵列")||t.includes("RAID")||t.includes("NAS")||t.includes("服务器"))
+    return {tools:["R-Studio / UFS Explorer（RAID虚拟重组）","PC-3000 + 镜像工具"], open:false, note:"编号拍照，逐盘镜像，虚拟重组"};
+  if(r.includes("BitLocker")||r.includes("加密")||t.includes("密钥"))
+    return {tools:["镜像工具（先做介质镜像）","客户提供恢复密钥"], open:false, note:"底层镜像+密钥缺一不可"};
+  if(t.includes("SSD")||r.includes("TRIM"))
+    return {tools:["PC-3000（SSD专用）","R-Studio / UFS Explorer"], open:false, note:"尽快离线镜像，概率保守"};
+  if(t.includes("进水")||t.includes("摔")||t.includes("泡")||risk==="D")
+    return {tools:["不要自行通电/扫描","转无尘开盘/物理修复"], open:true, note:"先停手，记录外观，转专业物理处理"};
+  if(r.includes("物理")||r.includes("固件")||r.includes("芯片")||t.includes("异响")||t.includes("敲盘")||t.includes("转一下就停")||t.includes("容量变")||t.includes("不识别"))
+    return {tools:["PC-3000","MRT","无尘开盘（如需换磁头）"], open:true, note:"物理/固件级，需专业设备判断"};
+  if(r.includes("受控")||t.includes("很慢")||t.includes("复制到一半"))
+    return {tools:["PC-3000（受控镜像）","MRT（受控镜像）"], open:false, note:"受控镜像，设置超时跳过"};
+  if(t.includes("U盘")||t.includes("存储卡")||t.includes("相机卡")||t.includes("sd卡")||r.includes("芯片"))
+    return {tools:["PC-3000（Flash/芯片级）","MRT","焊接/主控设备"], open:true, note:"可能进芯片级，能识别先镜像"};
+  if(t.includes("手机")||t.includes("微信"))
+    return {tools:["手机专业提取工具","iCloud/电脑备份优先"], open:false, note:"先停用，查云备份，再走提取"};
+  if(t.includes("数据库")||t.includes("邮件")||r.includes("数据库")||r.includes("邮件库"))
+    return {tools:["R-Studio / UFS Explorer","对应数据库/邮件修复工具"], open:false, note:"镜像后按库结构修复"};
+  if(t.includes("虚拟机"))
+    return {tools:["R-Studio / UFS Explorer","虚拟机挂载副本分析"], open:false, note:"镜像后挂副本，不在原文件写"};
+  if(t.includes("视频")||r.includes("视频"))
+    return {tools:["R-Studio / UFS Explorer","专用视频修复/重建索引工具"], open:false, note:"按设备格式重建索引"};
+  return {tools:["R-Studio / UFS Explorer","超级硬盘数据恢复软件"], open:false, note:"先做只读镜像，再逻辑分析"};
+}
+function step1Options(item){ return shuffle([classify(item).cat,...shuffle(PLAIN_CATS.filter(c=>c!==classify(item).cat)).slice(0,3)]); }
+function step2Options(item){ return shuffle([classify(item).route,...shuffle(PLAIN_ROUTES.filter(c=>c!==classify(item).route)).slice(0,3)]); }
+function step3Options(item){ return shuffle([classify(item).tool,...shuffle(PLAIN_TOOLS.filter(c=>c!==classify(item).tool)).slice(0,3)]); }
+function renderQuiz(){
+  const item=quizCur;
+  const c=classify(item);
+  const correctAll=[c.cat, c.route, c.tool];
+  const segClass=i=>{
+    if(quizChoices[i]===null) return i===quizStep?'active':'pending';
+    return quizChoices[i]===correctAll[i] ? 'ok' : 'bad';
+  };
+  const steps=[
+    {title:"第1步：先判断——这大概是什么情况？", opts:step1Options(item), idx:0, hint:"看客户描述的现象、是什么设备、有没有危险信号，先归个类"},
+    {title:"第2步：这种情况，第一步该怎么处理？", opts:step2Options(item), idx:1, hint:"先想清楚：是先镜像、先停手，还是先保住阵列 / 找密钥"},
+    {title:"第3步：该用什么工具 / 要不要开盘？", opts:step3Options(item), idx:2, hint:"工具要和上一步对上；开盘或芯片级必须用专业设备（PC-3000 / MRT / 无尘台）"}
+  ];
+  const cur=steps[quizStep];
+  let h=`<div class="card"><div class="bt-title" style="font-size:16px">客户说：“${esc(item.title)}”</div>`;
+  h+=`<div class="quiz-progress">${[0,1,2].map(i=>`<i class="${segClass(i)}" data-seg="${i}"></i>`).join("")}</div>`;
+  h+=`<div class="step active"><div class="step-h">${esc(cur.title)}</div>`;
+  h+=`<div class="muted" style="margin:-4px 0 10px;font-size:13px">${esc(cur.hint)}</div>`;
+  cur.opts.forEach(o=>{
+    const selected=quizChoices[quizStep]===o;
+    let cls="step-opt";
+    if(selected) cls+=" selected";
+    h+=`<button class="${cls}" data-v="${esc(o)}" ${quizChoices[quizStep]!==null?'disabled':''}><span class="tool-name">${esc(o)}</span></button>`;
+  });
+  h+=`</div>`;
+  const pending=!!quizAuto;
+  h+=`<div class="quiz-actions">`;
+  if(quizStep<2) h+=`<button class="bt" id="quizNext" ${pending?'disabled':''}>下一步</button>`;
+  else h+=`<button class="bt" id="quizSubmit" ${pending?'disabled':''}>提交，看完整方案</button>`;
+  h+=`<button class="ghost" id="quizRestart" ${pending?'disabled':''}>换一道</button>`;
+  if(pending) h+=`<span class="muted">800ms 后自动进入下一题…</span>`;
+  h+=`</div>`;
+  h+=`<div id="quizFeedback" style="margin-top:10px"></div></div>`;
+  document.getElementById("quizBox").innerHTML=h;
+
+  document.querySelectorAll("#quizBox .step-opt").forEach(b=>{ b.onclick=()=>{
+    if(quizChoices[quizStep]!==null || quizAuto) return;
+    const v=b.getAttribute("data-v");
+    quizChoices[quizStep]=v;
+    // 原地更新，不重渲染整屏，避免重新播放入场动画导致闪烁
+    b.classList.add("selected");
+    document.querySelectorAll("#quizBox .step-opt").forEach(x=>{ x.disabled=true; });
+    const seg=document.querySelector("#quizBox .quiz-progress i[data-seg=\""+quizStep+"\"]");
+    if(seg) seg.className=(v===correctAll[quizStep])?"ok":"bad";
+    const nb=document.getElementById("quizNext"); if(nb) nb.disabled=true;
+    const sb=document.getElementById("quizSubmit"); if(sb) sb.disabled=true;
+    const rb=document.getElementById("quizRestart"); if(rb) rb.disabled=true;
+    const fb=document.getElementById("quizFeedback"); if(fb) fb.innerHTML='<span class="muted">800ms 后自动进入下一题…</span>';
+    quizAuto=setTimeout(()=>{
+      quizAuto=null;
+      if(quizStep<2){ quizStep++; renderQuiz(); }
+      else showQuizResult();
+    }, 800);
+  };});
+  document.getElementById("quizRestart").onclick=()=>{ if(quizAuto){ clearTimeout(quizAuto); quizAuto=null; } startQuiz(); };
+  const nextBtn=document.getElementById("quizNext");
+  if(nextBtn) nextBtn.onclick=()=>{ if(quizAuto || quizChoices[quizStep]===null){ showQuizTip("请先选一个答案"); return; } quizStep++; renderQuiz(); };
+  const subBtn=document.getElementById("quizSubmit");
+  if(subBtn) subBtn.onclick=()=>{ if(quizAuto || quizChoices[quizStep]===null){ showQuizTip("请先选一个答案"); return; } showQuizResult(); };
+}
+function showQuizTip(msg){
+  const fb=document.getElementById("quizFeedback");
+  if(fb) fb.innerHTML=`<div class="fb-bad">${esc(msg)}</div>`;
+}
+function showQuizResult(){
+  const item=quizCur;
+  const c=classify(item);
+  const correct={p:c.cat, r:c.route, t:c.tool};
+  const tools=getTools(item);
+  const msg=genCustomerScript(item);
+  const compare=(label,yours,right)=>`<div class="compare-box"><h4>${esc(label)}</h4><div>你选：${esc(yours||"未选")}<br><span class="${yours===right?'fb-ok':'fb-bad'}">${yours===right?'✅ 正确':'❌ 正确应为：'+esc(right)}</span></div></div>`;
+  let h=`<div class="card"><div class="bt-title">完整方案：客户说“${esc(item.title)}”</div>`;
+  const seg=i=>`<i class="${quizChoices[i]===correct[['p','r','t'][i]]?'ok':'bad'}"></i>`;
+  h+=`<div class="quiz-progress">${seg(0)}${seg(1)}${seg(2)}</div>`;
+  h+=`<div class="compare">${compare("问题归类",quizChoices[0],correct.p)}${compare("处理路线",quizChoices[1],correct.r)}${compare("工具/开盘",quizChoices[2],correct.t)}</div>`;
+  h+=`<div class="sec"><div class="sec-h"><span class="ic ic-nxt">做</span>完整操作清单</div>
+       <div style="margin-bottom:8px"><strong>风险等级：</strong><span class="badge b-${item.risk}">${RISK_LABEL[item.risk]}</span></div>
+       <div style="margin-bottom:8px"><strong>是否开盘/固件级：</strong>${tools.open?"是，需专业物理/固件设备处理（如 PC-3000 / MRT / 无尘开盘）":"否，先走软件/镜像级"}</div>
+       <div style="margin-bottom:8px"><strong>推荐工具：</strong>${esc(tools.tools.join("、"))}</div>
+       <div style="margin-bottom:8px"><strong>工具说明：</strong>${esc(tools.note)}</div>
+       <div style="margin-bottom:8px"><strong>优先怀疑：</strong>${esc(item.suspect)}</div>
+       <div><strong>下一步：</strong>${esc(item.next)}</div>
+       <div style="margin-top:10px"><strong>该追问：</strong><ul>${item.ask.map(a=>"<li>"+esc(a)+"</li>").join("")}</ul></div>
+       <div><strong>禁止：</strong><ul>${item.forbid.map(a=>"<li>"+esc(a)+"</li>").join("")}</ul></div>
+     </div>`;
+  h+=`<div class="sec"><div class="sec-h"><span class="ic ic-say">话</span>发给客户的话术（可直接复制）</div>
+       <div class="say-box"><span class="say-text">${esc(msg)}</span><button class="copy-btn">复制</button></div></div>`;
+  h+=`<div class="quiz-actions"><button class="bt" id="quizNew2">再来一题</button></div></div>`;
+  document.getElementById("quizBox").innerHTML=h;
+  const cb=document.querySelector("#quizBox .copy-btn");
+  if(cb) cb.onclick=()=>copyText(msg,cb);
+  document.getElementById("quizNew2").onclick=startQuiz;
+}
+function startQuiz(){
+  if(quizAuto){ clearTimeout(quizAuto); quizAuto=null; }
+  quizCur=QUIZ[Math.floor(Math.random()*QUIZ.length)];
+  quizChoices=[null,null,null];
+  quizStep=0;
+  renderQuiz();
+}
+document.getElementById("quizNew").onclick=startQuiz;
+
+/* ===================== Tab 切换 ===================== */
+document.querySelectorAll(".tab").forEach(t=>{
+  const activate=()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active"); document.getElementById(t.getAttribute("data-v")).classList.add("active");
+  };
+  t.onclick=activate;
+  t.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); activate(); } });
+});
+renderChipGrid("");
+</script>
+</body>
+</html>
