@@ -23,7 +23,6 @@
   .hd-name{font-size:15px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
   .hd-nav{display:flex;gap:22px}
   .tab{font-size:13px;color:var(--ink2);cursor:pointer;user-select:none;padding-bottom:3px;border-bottom:2px solid transparent}
-  .tab:hover{color:var(--ink)}
   .tab.active{color:var(--ink);font-weight:700;border-bottom-color:var(--accent)}
   .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
@@ -34,7 +33,7 @@
 
   /* ---- 诊断页：索引 + 结果 ---- */
   .diag-wrap{display:grid;gap:24px}
-  .diag-result{order:1;min-width:0}
+  .diag-result{order:1;min-width:0;scroll-margin-top:70px}
   .diag-list{order:2;min-width:0}
   .filter-row{display:flex;gap:12px;align-items:center;margin-bottom:14px}
   .filter{flex:1;min-width:0;background:var(--paper2);border:1px solid var(--line);border-radius:2px;
@@ -45,8 +44,6 @@
   .idx-cat{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--ink2);margin-bottom:4px}
   .idx-row{display:flex;gap:10px;align-items:baseline;padding:6px 6px 6px 0;border-bottom:1px solid var(--line);
     border-left:3px solid transparent;font-size:13px;cursor:pointer;transition:background .12s,color .12s}
-  .idx-row:hover{background:var(--ink);color:var(--paper)}
-  .idx-row:hover .idx-no{color:var(--accent)}
   .idx-row.sel{background:var(--ink);color:var(--paper);border-left-color:var(--accent)}
   .idx-row.sel .idx-no{color:var(--accent)}
   .idx-no{font-family:var(--mono);font-size:11px;color:var(--ink3);flex:none;min-width:22px}
@@ -61,15 +58,14 @@
   .rc-sub{font-size:11.5px;color:var(--ink2);margin:4px 0 14px}
   .rc-sec{display:grid;grid-template-columns:34px 1fr;gap:12px;border-top:1px solid var(--line);padding:11px 0}
   .rc-k{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--ink2);padding-top:2px}
-  .rc-v{font-size:13px;min-width:0}
+  .rc-v{font-size:13px;min-width:0;overflow-wrap:anywhere}
   .rc-v ul{margin:0;padding-left:18px}.rc-v li{margin:2px 0}
 
   /* ---- 话术框 / 复制 ---- */
   .say-box{position:relative;background:var(--paper2);border:1px solid var(--line);border-radius:2px;
-    padding:14px 76px 14px 14px;white-space:pre-wrap;font-size:13px;line-height:1.8;word-break:break-word}
+    padding:14px 76px 14px 14px;white-space:pre-wrap;font-size:13px;line-height:1.8;word-break:break-word;overflow-wrap:anywhere}
   .copy-btn{position:absolute;top:8px;right:8px;background:var(--paper2);color:var(--ink);
     border:1px solid var(--ink);border-radius:2px;padding:3px 12px;font-size:11.5px;cursor:pointer;min-width:52px;min-height:28px}
-  .copy-btn:hover{background:var(--ink);color:var(--paper)}
   details{margin-top:10px}
   summary{cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--ink2)}
   .tags{margin-top:8px}
@@ -79,12 +75,10 @@
   /* ---- 按钮 ---- */
   .bt{background:var(--ink);color:var(--paper);border:1px solid var(--ink);border-radius:2px;
     padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer}
-  .bt:hover{background:var(--paper);color:var(--ink)}
   .bt:disabled{opacity:.35;cursor:default}
   .bt:disabled:hover{background:var(--ink);color:var(--paper)}
   .ghost{background:transparent;color:var(--ink);border:1px solid var(--ink);border-radius:2px;
     padding:8px 14px;font-size:12.5px;cursor:pointer}
-  .ghost:hover{background:var(--ink);color:var(--paper)}
   .ghost:disabled{opacity:.35;cursor:default}
   .ghost:disabled:hover{background:transparent;color:var(--ink)}
 
@@ -112,7 +106,6 @@
   .opt{display:flex;gap:12px;align-items:baseline;width:100%;text-align:left;background:var(--paper2);
     border:1px solid var(--line);border-radius:2px;padding:11px 14px;margin-top:8px;cursor:pointer;
     font-size:13px;line-height:1.6;color:var(--ink);font-family:inherit}
-  .opt:hover{border-color:var(--ink)}
   .opt:disabled{cursor:default}
   .opt:disabled:not(.sel){opacity:.55}
   .opt.sel{background:var(--ink);color:var(--paper);border-color:var(--ink)}
@@ -127,24 +120,58 @@
   .cmp-k{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--ink2);margin-bottom:6px}
   .cmp-v{margin:2px 0}
   .kv{display:grid;grid-template-columns:104px 1fr;gap:4px 12px;font-size:13px;margin:2px 0}
+  .kv span{overflow-wrap:anywhere}
 
+  @media(hover:hover){
+    .tab:hover{color:var(--ink)}
+    .idx-row:hover{background:var(--ink);color:var(--paper)}
+    .idx-row:hover .idx-no{color:var(--accent)}
+    .copy-btn:hover{background:var(--ink);color:var(--paper)}
+    .bt:hover{background:var(--paper);color:var(--ink)}
+    .ghost:hover{background:var(--ink);color:var(--paper)}
+    .opt:hover{border-color:var(--ink)}
+  }
   /* ---- 断点 ---- */
   @media(min-width:900px){
     .diag-wrap{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:0}
     .diag-list{order:1;border-right:1px solid var(--line);padding-right:24px}
     .diag-result{order:2;padding-left:24px;position:sticky;top:62px;align-self:start}
   }
+  @media(max-width:899px){
+    .diag-result{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:22px}
+    .cmp-grid{grid-template-columns:1fr}
+    .quiz-title{font-size:14px}
+  }
   @media(max-width:640px){
+    body{-webkit-text-size-adjust:100%}
     .hd-in{padding:10px 14px}
+    .hd-name{font-size:13.5px}
+    .hd-nav{gap:15px}
+    .tab{font-size:12.5px;padding-bottom:6px}
     main{padding:16px 14px}
     .page-h{font-size:19px}
-    .hd-name{font-size:14px}
-    .hd-nav{gap:16px}
-    .say-box{padding:12px 12px 44px}
-    .copy-btn{top:auto;right:10px;bottom:8px;min-height:32px}
-    .cmp-grid{grid-template-columns:1fr}
-    .quiz-actions .bt,.quiz-actions .ghost{width:100%;text-align:center}
+    .page-sub{font-size:12.5px;margin-bottom:16px}
+
+    .filter{font-size:16px;padding:11px 12px}
+    .filter-n{font-size:10.5px}
+    .idx-group{margin-bottom:14px}
+    .idx-row{font-size:13.5px;padding:11px 6px 11px 0}
+    .idx-no{min-width:20px}
+
+    .rc-title{font-size:16px}
+    .rc-sec{grid-template-columns:28px 1fr;gap:10px;padding:10px 0}
+    .rc-v{font-size:13.5px}
+    .say-box{padding:12px 12px 48px;font-size:14px;line-height:1.85}
+    .copy-btn{top:auto;right:10px;bottom:10px;min-height:34px;padding:6px 14px;font-size:12.5px}
+
+    .kv{grid-template-columns:1fr;gap:0}
+    .kv b{margin-top:8px}
+    .opt{padding:14px;font-size:13.5px;margin-top:10px}
+    .quiz-actions{gap:8px}
+    .quiz-actions .bt,.quiz-actions .ghost{width:100%;text-align:center;padding:12px 14px}
+    .empty{padding:20px 0}
   }
+
 </style>
 </head>
 <body>
